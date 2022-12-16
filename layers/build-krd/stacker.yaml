@@ -1,0 +1,40 @@
+config:
+  prerequisites:
+    - ../minbase/stacker.yaml
+
+build-krd:
+  build_only: true
+  from:
+    type: built
+    tag: minbase
+  import:
+    - ../../tools/build-initrd
+  run: |
+    #!/bin/bash -ex
+    pkgs=( )
+    # packages used for initrd runtime or dracut initrd build.
+    pkgs=( "${pkgs[@]}" 
+        binutils # strip
+        busybox-initramfs 
+        cryptsetup-bin 
+        kdump-tools 
+        lvm2 
+        systemd-sysv 
+    )
+    # packages used by build-initrd
+    pkgs=( "${pkgs[@]}" cpio dracut-core fakeroot pigz )
+    # firmware
+    pkgs=( "${pkgs[@]}" linux-firmware intel-microcode amd64-microcode )
+
+    pkgtool install "${pkgs[@]}"
+
+    # allow fakeroot to work. dracut unsets LD_LIBRARY_PATH and LD_PRELOAD
+    # using fakeroot means we do not get error messages about mknod.
+    sed -i.dist '/^unset LD_\(PRELOAD\|LIBRARY_PATH\)$/s,^,#,' /usr/bin/dracut
+    set +x; out=$(diff -u /usr/bin/dracut.dist /usr/bin/dracut 2>&1) && {
+      echo "failed to patch dracut LD_PRELOAD/LD_LIBRARY_PATH"
+      exit 1
+    }
+
+
+    cp /stacker/build-initrd /usr/local/bin

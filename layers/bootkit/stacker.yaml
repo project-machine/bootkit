@@ -1,0 +1,17 @@
+config:
+  prerequisites:
+    - ../kernel/stacker.yaml
+    - ../stubby/stacker.yaml
+
+bootkit:
+  from:
+    type: scratch
+  import:
+    - path: stacker://kernel-build/export/boot.tar
+      dest: /export/
+    - path: stacker://kernel-build/export/initrd.tar
+      dest: /export/
+    - path: stacker://kernel-build/export/modules.tar
+      dest: /export/
+    - path: stacker://stubby-build/export/stubby.tar
+      dest: /export/

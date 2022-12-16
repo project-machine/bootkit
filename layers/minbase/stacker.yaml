@@ -1,0 +1,21 @@
+minbase:
+  build_only: true
+  from:
+    type: docker
+    url: ${{DOCKER_BASE}}ubuntu:jammy
+  import:
+    - pkgtool
+  run: |
+    mirror=${{UBUNTU_MIRROR}}
+
+    rel=$(. /etc/os-release && echo "${VERSION_CODENAME}")
+    [ -n "$rel" ]
+    cat > /etc/apt/sources.list <<EOF
+    deb [by-hash=force] $mirror ${rel} main universe
+    deb [by-hash=force] $mirror ${rel}-updates main universe
+    deb [by-hash=force] $mirror ${rel}-security main universe
+    EOF
+
+    cp /stacker/pkgtool /usr/local/bin
+
+    pkgtool upgrade
