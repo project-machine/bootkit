@@ -2,16 +2,30 @@ config:
   prerequisites:
     - ../kernel/stacker.yaml
     - ../stubby/stacker.yaml
+    - ../minbase/stacker.yaml
+
+bootkit-assemble:
+  build_only: true
+  from:
+    type: built
+    tag: minbase
+  import:
+    - stacker://kernel-build/export/boot.tar
+    - stacker://kernel-build/export/initrd.tar
+    - stacker://kernel-build/export/modules.tar
+    - stacker://stubby-build/export/stubby.tar
+  run: |
+    mkdir /export
+    d=$(mktemp -d)
+    cd "$d"
+    mkdir export
+    ln -s /stacker/*.tar $d/export/
+    touch $d/.placeholder
+
+    tar -C "$d" -cf /export/bootkit.tar export/ .placeholder
+    rm -Rf "$d"
 
 bootkit:
   from:
-    type: scratch
-  import:
-    - path: stacker://kernel-build/export/boot.tar
-      dest: /export/
-    - path: stacker://kernel-build/export/initrd.tar
-      dest: /export/
-    - path: stacker://kernel-build/export/modules.tar
-      dest: /export/
-    - path: stacker://stubby-build/export/stubby.tar
-      dest: /export/
+    type: tar
+    url: stacker://bootkit-assemble/export/bootkit.tar
