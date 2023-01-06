@@ -20,10 +20,10 @@ OCI_D ?= $(BUILD_D)/oci
 # STACKER_BUILD_ARGS = --shell-fail
 STACKER_OPTS = --stacker-dir=$(STACKER_D) --roots-dir=$(ROOTS_D) --oci-dir=$(OCI_D) $(STACKER_COMMON_OPTS)
 STACKER_BUILD = stacker $(STACKER_OPTS) build $(STACKER_BUILD_ARGS) --layer-type=squashfs $(STACKER_SUBS)
-STACKER_RBUILD = stacker $(STACKER_OPTS) recursive-build $(STACKER_BUILD_ARGS) --layer-type=squashfs $(STACKER_SUBS)
+STACKER_RBUILD = stacker $(STACKER_OPTS) recursive-build $(STACKER_BUILD_ARGS) --search-dir=layers/ --layer-type=squashfs $(STACKER_SUBS)
 
 debug:
 	@echo MAIN_VERSION=$(MAIN_VERSION)
 	@echo MAIN_SERIAL=$(MAIN_SERIAL)
 	@echo BUILD_D=$(BUILD_D)
-	@echo SUBS=$(SUBS)
+	@echo SUBS=$(STACKER_SUBS)
