@@ -25,6 +25,8 @@ build-krd:
     pkgs=( "${pkgs[@]}" cpio dracut-core fakeroot pigz )
     # firmware
     pkgs=( "${pkgs[@]}" linux-firmware intel-microcode amd64-microcode )
+    # uki tools
+    pkgs=( "${pkgs[@]}" efitools pigz )
 
     pkgtool install "${pkgs[@]}"
 

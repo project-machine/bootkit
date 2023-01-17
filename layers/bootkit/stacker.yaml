@@ -1,6 +1,7 @@
 config:
   prerequisites:
     - ../kernel/stacker.yaml
+    - ../shim/stacker.yaml
     - ../stubby/stacker.yaml
     - ../minbase/stacker.yaml
 
@@ -8,21 +9,102 @@ bootkit-assemble:
   build_only: true
   from:
     type: built
-    tag: minbase
+    tag: build-krd
   import:
     - stacker://kernel-build/export/boot.tar
     - stacker://kernel-build/export/initrd.tar
     - stacker://kernel-build/export/modules.tar
     - stacker://stubby-build/export/stubby.tar
+    - stacker://shim-build/export/shim.tar
+    - ${{KEYS_REPO:https://github.com/project-machine/keys/archive/refs/heads/snakeoil.tar.gz}}
+    - ${{TRUST_BINARY:https://github.com/project-machine/trust/releases/download/0.0.1/trust}}
+    - ${{MOSCTL_BINARY:https://aci-docker-reg.cisco.com:443/artifactory/atom-bld/serge/mosctl}}
   run: |
+    #!/bin/bash -ex
     mkdir /export
     d=$(mktemp -d)
     cd "$d"
+    trap "rm -Rf $d" EXIT
     mkdir export
+
+    # basically find the 'keys' import by filtering out the expected .tar
+    exports="boot initrd modules stubby shim"
+    bins="trust mosctl"
+    mkdir $d/imports
+    ln -s /stacker/* $d/imports/
+    for e in ${exports}; do
+        mv $d/imports/$e.tar $d/export
+    done
+    for e in $bins; do
+        rm "$d/imports/$e"
+    done
+
+    set -- $d/imports/*
+    [ $# -eq 0 ] && { echo "no key import found"; exit 1; }
+    [ $# -eq 1 ] || { echo "found imports that could be a key: $*"; exit 1; }
+    keyimport=$1
+    echo "keyimport=$keyimport"
+    if [ -f "$keyimport" ]; then
+        kdir="$d/keyex"
+        mkdir "$kdir"
+        cd "$kdir"
+        tar -xf "$keyimport"
+        set -- *
+        [ $# -eq 0 ] && { echo "tar extract $keyimport produced nothing"; exit 1; }
+        if [ $# -ne 1 ]; then
+              echo "tar extract ${keyimport##*/} produced $# top level things";
+              exit 1;
+        fi
+        keydir="$PWD/$1"
+    elif [ -d "$keyimport" ]; then
+        keydir="$keyimport"
+    else
+        echo "key import ${keyimport##*/} must be file or dir"
+        exit 1
+    fi
+
+    initrd_d="$d/initrd"
+    tar -C $d -xf /stacker/initrd.tar
+    [ -d "$initrd_d" ] || { echo "initrd.tar did not create 'initrd'"; exit 1; }
+
+    workd="$d/workd"
+    mkdir "$workd"
+
+    addinitrd="$d/add-initrd.cpio"
+    cp "$keydir/manifestCA/cert.pem" "$workd/manifestCA.pem"
+    mkdir -p "$workd/usr/bin"
+    ( cd /stacker && cp -v $bins $workd/usr/bin/ )
+    chmod 755 "$workd/usr/bin"/*
+
+    find "$workd" ! -type d
+    ( set -o pipefail
+      cd "$workd" && 
+      find * ! -type d | 
+         cpio --create --owner=+0:+0 -H newc --quiet --dereference
+    ) > "$addinitrd"
+
+
+    mkdir /export/final/
+    # smash initrds together
+    ( set +x;
+      for f in "${initrd_d}"/*.cpio* "$addinitrd"; do
+        case "$f" in
+          *.gz) pigz --decompress --to-stdout "$f" || exit;;
+          *) cat "$f" || exit;;
+        esac
+        echo "added $f" 1>&2
+      done  |
+        pigz --to-stdout --comment "initrd"
+    ) > "/export/final/initrd.cpio.gz"
+
+
+    # smash and sign.
+
+    ##
     ln -s /stacker/*.tar $d/export/
     touch $d/.placeholder
 
-    tar -C "$d" -cf /export/bootkit.tar export/ .placeholder
+    tar -cf /export/bootkit.tar --dereference -C "$d" export/ .placeholder
     rm -Rf "$d"
 
 bootkit:

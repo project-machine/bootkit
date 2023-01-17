@@ -1,0 +1,20 @@
+config:
+  prerequisites:
+    - ../minbase/stacker.yaml
+
+shim-build:
+  build_only: true
+  from:
+    type: built
+    tag: minbase
+  import:
+    - https://github.com/project-machine/keys/releases/download/0.0.1/shim-machine.signed.efi
+  run: |
+    d=$(mktemp -d)
+    trap "rm -Rf $d" EXIT
+
+    mkdir $d/shim
+    cp /stacker/shim-*.signed.efi $d/shim-signed.efi
+
+    mkdir /export
+    tar -C "$d" -cf /export/shim.tar shim/

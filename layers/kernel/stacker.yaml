@@ -19,6 +19,8 @@ kernel-build:
 
     build-initrd build -v -v --modules --core "$d/initrd"
 
+    chmod ugo+r "$d/initrd"/*
+
     echo "$ver" > "$d/initrd/version"
     echo "$ver" > "/lib/modules/$ver/version"
     echo "$ver" > "$d/boot/$ver/version"

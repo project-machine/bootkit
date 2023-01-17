@@ -299,6 +299,16 @@ main_build() {
         return;
     fi
 
+    # the busybox module expects 'busybox' to be in the PATH, but
+    # Ubuntu's busybox-initramfs is only installed to /usr/lib/initramfs-tools/bin
+    # so if that is present, add it to the PATH.
+    local bboxd="/usr/lib/initramfs-tools/bin"
+    if command -v busybox >/dev/null; then
+        :
+    elif [ -x "$bboxd/busybox" ]; then
+        PATH="$PATH:$bboxd"
+    fi
+
     local outd="${1%/}" t="" found=""
     for t in "$modules" "$core" "$combined"; do
         [ "$t" = "true" ] && found="true" && break

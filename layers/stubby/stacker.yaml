@@ -19,11 +19,26 @@ stubby-build:
     - "https://github.com/puzzleos/stubby/archive/refs/tags/v1.0.1.tar.gz"
   run: |
     #!/bin/bash -ex
-    tar -xvf /stacker/v*.tar.gz
+    tarball=$(echo /stacker/v*.tar.gz)
+    [ -f "$tarball" ] || { echo "no stubby tarball found in /stacker"; exit 1; }
+    tar -xvf "$tarball"
+    # expecting tarball named 'vX.Y.Z.tar.gz', so strip suffix and leading 'v' to get version.
+    t=${tarball##*/}
+    t=${t%.tar.*}
+    version=${t#v}
     cd stubby* || {
       echo "stubby tarball did not create a single dir matching stubby*:" stubby*;
       exit 1;
     }
     make
+
+    tmpd=$(mktemp -d)
+    trap "rm -Rf $tmpd" EXIT
+
+    d="$tmpd/stubby"
+    mkdir "$d"
+    echo "$version" > "$d/version"
+    cp stubby.efi stubby-smash.2.sh sbat.csv "$d/"
+
     mkdir /export
-    tar -cf /export/stubby.tar stubby.efi stubby-smash.1.sh stubby-smash.2.sh sbat.csv
+    tar -cf /export/stubby.tar -C "$tmpd" stubby/
