@@ -81,11 +81,15 @@ bootkit-assemble:
     [ -f "$stubefi" ] ||
         { echo "stubby.tar did not have a stubby/stubby.efi"; exit 1; }
 
+    shim="$d/shim/shim-signed.efi"
+    tar -C "$d" -xf /stacker/shim.tar
+    [ -f "$shim" ] || { echo "shim.tar did not have ${shim#*$d}"; exit 1; }
+
     workd="$d/workd"
     mkdir "$workd"
 
     addinitrd="$d/add-initrd.cpio"
-    cp "$keydir/manifestCA/cert.pem" "$workd/manifestCA.pem"
+    cp "$keydir/manifest-ca/cert.pem" "$workd/manifestCA.pem"
     mkdir -p "$workd/usr/bin"
     ( cd /stacker && cp -v $bins $workd/usr/bin/ )
     chmod 755 "$workd/usr/bin"/*
@@ -137,18 +141,24 @@ bootkit-assemble:
         "--change-section-vma=.initrd=0x3000000" \
         "$stubefi" "$d/kernel.efi"
 
-    mkdir -p "$d/export/uki"
+    mkdir -p "$d/export/bootkit"
     sbsign \
         "--cert=$keydir/uki-production/cert.pem" \
         "--key=$keydir/uki-production/privkey.pem" \
-        "--output=$d/export/uki/kernel.efi" "$d/kernel.efi"
-    chmod 644 "$d/export/uki/kernel.efi"
+        "--output=$d/export/bootkit/kernel.efi" "$d/kernel.efi"
+    chmod 644 "$d/export/bootkit/kernel.efi"
+
+    # copy the manifest-ca/cert.pem into the output
+    # so users can easily see.
+    cp "$keydir/manifest-ca/cert.pem" "$d/export/manifest-ca-cert.pem"
+    cp "$d/shim/shim-signed.efi" "$d/export/bootkit/shim.efi"
+    chmod 644 "$d/export/bootkit/shim.efi"
 
     ##
     touch $d/.placeholder
 
     #tar -cf /export/bootkit.tar --dereference -C "$d" export/ .placeholder
-    tar -cf /export/bootkit.tar -C "$d" export/uki/ .placeholder
+    tar -cf /export/bootkit.tar -C "$d" export/bootkit/ .placeholder
     rm -Rf "$d"
 
 bootkit:

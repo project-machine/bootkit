@@ -14,7 +14,7 @@ shim-build:
     trap "rm -Rf $d" EXIT
 
     mkdir $d/shim
-    cp /stacker/shim-*.signed.efi $d/shim-signed.efi
+    cp /stacker/shim-*.signed.efi $d/shim/shim-signed.efi
 
     mkdir /export
     tar -C "$d" -cf /export/shim.tar shim/
