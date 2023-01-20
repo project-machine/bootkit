@@ -31,6 +31,7 @@ bootkit-assemble:
     cp "$d/uki/kernel.efi" "$prepd/kernel.efi"
     cp "$d/ovmf/ovmf-vars.fd" "$prepd/ovmf-vars.fd"
     cp "$d/ovmf/ovmf-code.fd" "$prepd/ovmf-code.fd"
+    cp /stacker/boot.tar /stacker/modules.tar "$prepd"
 
     mkdir /export
     tar -C "$d" -cf /export/bootkit.tar bootkit/
