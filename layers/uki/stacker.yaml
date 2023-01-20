@@ -16,8 +16,7 @@ uki-build:
     - stacker://stubby-build/export/stubby.tar
     - ${{KEYS_REPO:https://github.com/project-machine/keys/archive/refs/heads/snakeoil.tar.gz}}
     - ${{TRUST_BINARY:https://github.com/project-machine/trust/releases/download/0.0.1/trust}}
-    - ${{MOSCTL_BINARY:https://aci-docker-reg.cisco.com:443/artifactory/atom-bld/serge/mos/0.0.2/mosctl}}
-#    - ${{MOSCTL_BINARY:https://github.com/project-machine/mos/releases/download/0.0.2/mosctl}}
+    - ${{MOSCTL_BINARY:https://github.com/project-machine/mos/releases/download/0.0.2/mosctl}}
   run: |
     #!/bin/bash -ex
     d=$(mktemp -d)
