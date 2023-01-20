@@ -1,0 +1,39 @@
+config:
+  prerequisites:
+    - ../minbase/stacker.yaml
+
+ovmf-build-env:
+  build_only: true
+  from:
+    type: built
+    tag: minbase
+  run: |
+    pkgtool install python3 python3-pip ovmf
+    pip install virt-firmware
+
+ovmf-build:
+  build_only: true
+  from:
+    type: built
+    tag: ovmf-build-env
+  import:
+    - ${{KEYS_REPO:https://github.com/project-machine/keys/archive/refs/heads/snakeoil.tar.gz}}
+  run: |
+    d=$(mktemp -d)
+    trap "rm -Rf $d" EXIT
+
+    mkdir "$d/ovmf" "$d/x"
+    tar -C "$d/x" -xf /stacker/*.tar.gz
+    keysdir=$(echo "$d/x"/*)
+    [ -d "$keysdir" ] || { echo "not exactly one dir in keys input"; exit 1; }
+
+    read guid < "$keysdir/uefi-db/guid"
+    virt-fw-vars \
+      "--input=/usr/share/OVMF/OVMF_VARS_4M.fd" \
+      "--output=$d/ovmf/ovmf-vars.fd" \
+      --no-microsoft \
+      --secure-boot \
+      --add-db "$guid" $keysdir/uefi-db/cert.pem
+
+    mkdir /export
+    tar -C "$d" -cvf /export/ovmf.tar ovmf
