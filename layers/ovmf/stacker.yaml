@@ -28,6 +28,7 @@ ovmf-build:
     [ -d "$keysdir" ] || { echo "not exactly one dir in keys input"; exit 1; }
 
     read guid < "$keysdir/uefi-db/guid"
+    cp /usr/share/OVMF/OVMF_CODE_4M.fd "$d/ovmf/ovmf-code.fd"
     virt-fw-vars \
       "--input=/usr/share/OVMF/OVMF_VARS_4M.fd" \
       "--output=$d/ovmf/ovmf-vars.fd" \

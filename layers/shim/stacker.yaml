@@ -82,11 +82,11 @@ shim-build:
 
 
     mkdir $d/shim
-    cp $shimd/shimx64.efi $d/shim/shim.efi
+    cp $shimd/shimx64.efi $d/shim/shim-unsigned.efi
     sbsign \
         "--cert=$keydir/uefi-db/cert.pem" \
         "--key=$keydir/uefi-db/privkey.pem" \
-        "--output=$d/shim/shim-signed.efi" $d/shim/shim.efi
+        "--output=$d/shim/shim.efi" $d/shim/shim-unsigned.efi
 
     mkdir /export
     tar -C "$d" -cf /export/shim.tar shim/
