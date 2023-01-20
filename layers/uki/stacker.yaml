@@ -1,0 +1,135 @@
+config:
+  prerequisites:
+    - ../minbase/stacker.yaml
+    - ../build-krd/stacker.yaml
+    - ../kernel/stacker.yaml
+    - ../stubby/stacker.yaml
+
+uki-build:
+  build_only: true
+  from:
+    type: built
+    tag: build-krd
+  import:
+    - stacker://kernel-build/export/boot.tar
+    - stacker://kernel-build/export/initrd.tar
+    - stacker://stubby-build/export/stubby.tar
+    - ${{KEYS_REPO:https://github.com/project-machine/keys/archive/refs/heads/snakeoil.tar.gz}}
+    - ${{TRUST_BINARY:https://github.com/project-machine/trust/releases/download/0.0.1/trust}}
+    - ${{MOSCTL_BINARY:https://aci-docker-reg.cisco.com:443/artifactory/atom-bld/serge/mos/0.0.2/mosctl}}
+#    - ${{MOSCTL_BINARY:https://github.com/project-machine/mos/releases/download/0.0.2/mosctl}}
+  run: |
+    #!/bin/bash -ex
+    d=$(mktemp -d)
+    cd "$d"
+    trap "rm -Rf $d" EXIT
+
+    mkdir $d/export
+
+    # basically find the 'keys' import by filtering out everything else we expect to be there.
+    nonkeys="boot initrd stubby"
+    bins="trust mosctl"
+    mkdir $d/imports
+    ln -s /stacker/* $d/imports/
+    for e in $nonkeys; do
+        rm -f $d/imports/$e.tar
+    done
+    for e in $bins; do
+        rm "$d/imports/$e"
+    done
+
+    set -- $d/imports/*
+    [ $# -eq 0 ] && { echo "no key import found"; exit 1; }
+    [ $# -eq 1 ] || { echo "found imports that could be a key: $*"; exit 1; }
+    keyimport=$1
+
+    mkdir "$d/keyx"
+    tar -C "$d/keyx" -xf "$keyimport"
+    keydir=$(echo "$d/keyx"/*)
+    [ -d "$keydir" ] || { echo "found not exactly one dir in $keyimport"; exit 1; }
+
+    initrd_d="$d/initrd"
+    tar -C "$d" -xf /stacker/initrd.tar
+    [ -d "$initrd_d" ] || { echo "initrd.tar did not create 'initrd'"; exit 1; }
+
+    tar -C "$d" -xf /stacker/boot.tar
+    # boot should produce boot/<uname -r>/
+    kernel_d=$(echo "$d/boot"/*)
+    [ -d "$kernel_d" -a -f "$kernel_d/vmlinuz" ] ||
+       { echo "kernel didn't have expected content"; exit 1; }
+    kernel="$kernel_d/vmlinuz"
+
+    stubefi="$d/stubby/stubby.efi"
+    tar -C "$d" -xf /stacker/stubby.tar
+    [ -f "$stubefi" ] ||
+        { echo "stubby.tar did not have a stubby/stubby.efi"; exit 1; }
+
+    workd="$d/workd"
+    mkdir "$workd"
+
+    addinitrd="$d/add-initrd.cpio"
+    cp "$keydir/manifest-ca/cert.pem" "$workd/manifestCA.pem"
+    mkdir -p "$workd/usr/bin"
+    ( cd /stacker && cp -v $bins $workd/usr/bin/ )
+    chmod 755 "$workd/usr/bin"/*
+
+    find "$workd" ! -type d
+    ( set -o pipefail
+      cd "$workd" &&
+      find * ! -type d |
+         cpio --create --owner=+0:+0 -H newc --quiet --dereference
+    ) > "$addinitrd"
+
+
+    initrd="$d/initrd.cpio.gz"
+    # smash initrds together
+    ( set +x;
+      for f in "${initrd_d}"/*.cpio* "$addinitrd"; do
+        case "$f" in
+          *.gz) pigz --decompress --to-stdout "$f" || exit;;
+          *) cat "$f" || exit;;
+        esac
+        echo "added $f" 1>&2
+      done  |
+        pigz --to-stdout --comment "initrd"
+    ) > "$initrd"
+
+    # smash and sign.
+    # Build in an empty command line.
+    smooshtmpd="$tmpd/smoosh"
+    mkdir "$smooshtmpd"
+    cmdline=""
+    cmdlinef="$smooshtmpd/cmdline"
+    sbatf="$smooshtmpd/sbat.csv"
+    printf "%s" "$cmdline" > "$cmdlinef"
+    cat > "$sbatf" <<"EOF"
+    sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+    stubby.puzzleos,2,PuzzleOS,stubby,1,https://github.com/puzzleos/stubby
+    linux.puzzleos,1,PuzzleOS,linux,1,NOURL
+    EOF
+
+    objcopy \
+        "--add-section=.cmdline=$cmdlinef" \
+        "--change-section-vma=.cmdline=0x30000" \
+        "--change-section-vma=.sbat=0x50000" \
+        "--add-section=.sbat=$sbatf" \
+        "--set-section-alignment=.sbat=512" \
+        "--add-section=.linux=$kernel" \
+        "--change-section-vma=.linux=0x2000000" \
+        "--add-section=.initrd=$initrd" \
+        "--change-section-vma=.initrd=0x3000000" \
+        "$stubefi" "$d/kernel.efi"
+
+    mkdir "$d/uki"
+    sbsign \
+        "--cert=$keydir/uki-production/cert.pem" \
+        "--key=$keydir/uki-production/privkey.pem" \
+        "--output=$d/uki/kernel.efi" "$d/kernel.efi"
+    chmod 644 "$d/uki/kernel.efi"
+
+    # copy the manifest-ca/cert.pem into the output
+    # so users can easily see.
+    cp "$keydir/manifest-ca/cert.pem" "$d/uki/manifest-ca-cert.pem"
+
+    mkdir /export
+    tar -C "$d" -cf /export/uki.tar uki
