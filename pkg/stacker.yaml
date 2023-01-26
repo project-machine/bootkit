@@ -3,6 +3,7 @@ config:
     - ../layers/minbase/stacker.yaml
 
 buildenv-pkg:
+  build_only: true
   from:
     type: built
     tag: minbase
@@ -43,6 +44,7 @@ buildenv-pkg:
     go version
 
 build-pkg:
+  build_only: true
   from:
     type: built
     tag: buildenv-pkg
