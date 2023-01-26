@@ -35,7 +35,7 @@ jobs:
           if-no-files-found: error
       - name: Publish zot
         env:
-          PUBLISH_USER: ${{ secrets.ZOTHUB_USERNAME }}
+          PUBLISH_USER: ${{ secrets.ZOTHUB_USERNAME_BAZOOKA }}
           PUBLISH_PASSWORD: ${{ secrets.ZOTHUB_PASSWORD }}
           PUBLISH_URL: "docker://zothub.io/machine/bootkit"
         run: |
