@@ -221,6 +221,8 @@ main() {
     esac
     shift
 
+    [ "$(id -u)" = "0" ] || { error "Must be root"; return 1; }
+
     trap cleanup EXIT
     $subfunc "$@" || fail "$subcmd failed"
 }
