@@ -40,3 +40,12 @@ bootkit:
   from:
     type: tar
     url: stacker://bootkit-assemble/export/bootkit.tar
+  annotations:
+    org.opencontainers.image.url: "https://github.com/project-machine"
+    org.opencontainers.image.source: "https://github.com/project-machine"
+    org.opencontainers.image.version: "n/a"
+    org.opencontainers.image.revision: "n/a"
+    org.opencontainers.image.vendor: "project-machine"
+    org.opencontainers.image.licenses: "GPLv2 and others"
+    org.opencontainers.image.title: "bootkit"
+    org.opencontainers.image.description: ""
