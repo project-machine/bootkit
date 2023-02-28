@@ -20,6 +20,9 @@ build-krd-pkg:
         kdump-tools 
         lvm2 
         systemd-sysv 
+        # mosctl
+        libsquashfs1
+        libgpgme11
     )
     # packages used by build-initrd
     pkgs=( "${pkgs[@]}" cpio dracut-core fakeroot pigz )

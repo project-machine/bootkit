@@ -70,14 +70,17 @@ uki-build:
     mkdir -p "$workd/usr/bin"
     ( cd /stacker && cp -v $bins $workd/usr/bin/ )
     chmod 755 "$workd/usr/bin"/*
+    # dracut-install will pick up all the deps for these binaries
+    # FIXME: problem here is that any overlapping deps will be present
+    # twice in the initramfs cpio (once from core and once from here)
+    /usr/lib/dracut/dracut-install -D "$workd" --ldd --resolvelazy $workd/usr/bin/*
 
     find "$workd" ! -type d
     ( set -o pipefail
       cd "$workd" &&
       find * ! -type d |
-         cpio --create --owner=+0:+0 -H newc --quiet --dereference
+         cpio --create --owner=+0:+0 -H newc --quiet
     ) > "$addinitrd"
-
 
     initrd="$d/initrd.cpio.gz"
     # smash initrds together
@@ -89,7 +92,7 @@ uki-build:
         esac
         echo "added $f" 1>&2
       done  |
-        pigz --to-stdout --comment "initrd"
+        pigz --to-stdout
     ) > "$initrd"
 
     # smash and sign.
@@ -119,6 +122,8 @@ uki-build:
         "$stubefi" "$d/kernel.efi"
 
     mkdir "$d/uki"
+    cp "$initrd" "$d/uki"
+    cp "$kernel" "$d/uki"
     sbsign \
         "--cert=$keydir/uki-production/cert.pem" \
         "--key=$keydir/uki-production/privkey.pem" \
