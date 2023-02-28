@@ -10,6 +10,8 @@ minbase:
 
     rel=$(. /etc/os-release && echo "${VERSION_CODENAME}")
     [ -n "$rel" ]
+
+    cp /etc/apt/sources.list /etc/apt/sources.list.dist
     cat > /etc/apt/sources.list <<EOF
     deb [by-hash=force] $mirror ${rel} main universe
     deb [by-hash=force] $mirror ${rel}-updates main universe
