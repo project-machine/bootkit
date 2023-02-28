@@ -2,7 +2,7 @@ config:
   prerequisites:
     - ../minbase/stacker.yaml
 
-build-krd:
+build-krd-pkg:
   build_only: true
   from:
     type: built
@@ -30,13 +30,42 @@ build-krd:
 
     pkgtool install "${pkgs[@]}"
 
-    # allow fakeroot to work. dracut unsets LD_LIBRARY_PATH and LD_PRELOAD
-    # using fakeroot means we do not get error messages about mknod.
+    # allow fakeroot to work so there are no errors when using 'mknod'
+    # dracut unsets LD_LIBRARY_PATH and LD_PRELOAD. The 'sed' here comments
+    # out lines that 'unset' those variables, allowing them to be used from
+    # the caller's environment.
     sed -i.dist '/^unset LD_\(PRELOAD\|LIBRARY_PATH\)$/s,^,#,' /usr/bin/dracut
-    set +x; out=$(diff -u /usr/bin/dracut.dist /usr/bin/dracut 2>&1) && {
-      echo "failed to patch dracut LD_PRELOAD/LD_LIBRARY_PATH"
-      exit 1
-    }
+    ret=0
+    out=$(diff -u /usr/bin/dracut.dist /usr/bin/dracut 2>&1) || ret=$?
+    # diff exits 0 on "no differences", 1 on differences, 2 on error.
+    if [ $ret -eq 1 ]; then
+       : # assume the change was correct.
+    elif [ $ret -eq 0 ]; then
+       echo "FAIL: updating /usr/bin/dracut with sed did not make any changes"
+       exit 1
+    else
+       echo "FAIL: checking for differences after patching dracut failed with $ret"
+       exit 1
+    fi
 
+build-krd:
+  build_only: true
+  from:
+    type: built
+    tag: build-krd-pkg
+  import:
+    - ../../tools/build-initrd
+    - dracut/
+  run: |
 
     cp /stacker/build-initrd /usr/local/bin
+
+    cp /stacker/dracut/bootkit.conf /etc/dracut.conf.d/dracut-atom.conf
+    for d in /stacker/dracut/*; do
+        [ -d "$d" -a -e "$d/module-setup.sh" ] || continue
+        base=${d##*/}
+        tdir="/usr/lib/dracut/modules.d/91${base}"
+        rm -Rf "$tdir"
+        mkdir -p "$tdir"
+        cp -r "$d"/* "$tdir"
+    done
