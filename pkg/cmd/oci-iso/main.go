@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"fmt"
 	"io"
-	"io/fs"
 	"io/ioutil"
 	"os"
 	"path"
@@ -34,7 +33,7 @@ const (
 	PathKernelEFI   = "loader/uefi/kernel.efi"
 	PathGrubCfg     = "loader/grub/grub.cfg"
 	Bios            = "bios"
-	BootLayerName   = "oci-live-boot"
+	BootLayerName   = "live-boot:latest"
 	ISOLabel        = "OCI-ISO"
 )
 
@@ -90,28 +89,108 @@ func (opts ISOOptions) MkisofsArgs() ([]string, error) {
 	return s, nil
 }
 
-func ociExtractRef(image, dest string) error {
+const layoutTree, layoutFlat, layoutNone = "tree", "flat", ""
 
+type ociPath struct {
+	Repo   string
+	Name   string
+	Tag    string
+	layout string
+}
+
+func (o ociPath) String() string {
+	return "oci:" + o.OciDir() + ":" + o.RefName()
+}
+
+func (o *ociPath) OciDir() string {
+	if o.layout == layoutTree {
+		return filepath.Join(o.Repo, o.Name)
+	}
+	return o.Repo
+}
+
+// the name that you would look for in a manifest
+func (o *ociPath) RefName() string {
+	if o.layout == layoutTree {
+		return o.Tag
+	}
+	if o.Name == "" {
+		return o.Tag
+	}
+	return o.Name + ":" + o.Tag
+}
+
+// the name (namespace) and tag of this entry.
+func (o *ociPath) NameAndTag() string {
+	if o.Name == "" {
+		return o.Tag
+	}
+	return o.Name + ":" + o.Tag
+}
+
+func newOciPath(ref string, layout string) (*ociPath, error) {
+	// oci:dir:[name:]tag
+	toks := strings.Split(ref, ":")
+	num := len(toks)
+
+	p := &ociPath{}
+	if num <= 2 {
+		return p, fmt.Errorf("Not enough ':' in '%s'. Need 2 or 3, found %d", ref, num-1)
+	} else if num > 4 {
+		return p, fmt.Errorf("Too many ':' in '%s'. Need 2 or 3, found %d", ref, num-1)
+	}
+
+	p.layout = layout
+	p.Repo = toks[1]
+	switch p.layout {
+	case layoutTree, layoutFlat:
+	case layoutNone:
+		p.layout = layoutTree
+		if PathExists(filepath.Join(p.Repo, "index.json")) {
+			p.layout = layoutFlat
+		}
+	default:
+		return p, fmt.Errorf("unknown layout %s", layout)
+	}
+
+	if num == 3 {
+		p.Tag = toks[2]
+	} else {
+		p.Name = toks[2]
+		p.Tag = toks[3]
+	}
+
+	return p, nil
+}
+
+func ociExtractRef(image, dest string) error {
 	tmpOciDir, err := ioutil.TempDir("", "extractRef-")
 	if err != nil {
 		return err
 	}
 	const tmpName = "xxextract"
 	defer os.RemoveAll(tmpOciDir)
-	err = lib.ImageCopy(lib.ImageCopyOpts{
-		Src:  image,
-		Dest: fmt.Sprintf("oci:%s:%s", tmpOciDir, tmpName),
-	})
+
+	dp, err := newOciPath("oci:"+tmpOciDir+":"+tmpName, layoutTree)
 	if err != nil {
-		return fmt.Errorf("couldn't extract %s: %w", image, err)
+		return err
 	}
-	oci, err := umoci.OpenLayout(tmpOciDir)
+
+	if err := doCopy(image, dp.String()); err != nil {
+		return fmt.Errorf("copy %s -> %s failed: %w", image, dp.String(), err)
+	}
+
+	log.Debugf("ok, that went well, now openLayout(%s)", tmpOciDir)
+	ociDir := dp.OciDir()
+	oci, err := umoci.OpenLayout(ociDir)
 	if err != nil {
 		return err
 	}
 	defer oci.Close()
 
-	return unpackLayerRootfs(tmpOciDir, oci, tmpName, dest)
+	log.Debugf("ok, that went well, now unpack %s, %s, %s, %s", tmpOciDir, oci, tmpName, dest)
+
+	return unpackLayerRootfs(ociDir, oci, dp.RefName(), dest)
 }
 
 func unpackLayerRootfs(ociDir string, oci casext.Engine, tag string, extractTo string) error {
@@ -351,61 +430,6 @@ func ensureDir(dir string) error {
 	return os.MkdirAll(dir, 0755)
 }
 
-func writeGrubConfig(fname string) error {
-	if err := ensureDir(filepath.Dir(fname)); err != nil {
-		return err
-	}
-	const grubCfg = `
-if [ "$grub_platform" = "efi" ]; then
-    linux="linuxefi"
-    initrd="initrdefi"
-    serial="serial_efi0"
-
-    insmod efi_gop
-    insmod efi_uga
-else
-    linux="linux"
-    initrd="initrd"
-    serial="serial"
-fi
-
-serial --unit=0 --speed=115200
-terminal_output console $serial
-terminal_input console $serial
-
-insmod video_bochs
-insmod video_cirrus
-insmod all_video
-insmod gzio
-insmod part_gpt
-insmod ext2
-
-set default="0"
-set gfxpayload=keep
-set timeout=7
-# Optional longer timeout for dev/test - number is in seconds.
-#set timeout=200
-
-menuentry 'Boot OCI:` + BootLayerName + `' --class gnu-linux --class os {
-    $linux /krd/kernel verbose console=tty0 console=ttyS0,115200n8 root=soci:name=` + BootLayerName + `,dev=LABEL=` + ISOLabel + `
-    $initrd /krd/initrd
-}
-
-if [ "$grub_platform" = "efi" -a -e "/loader/uefi/kernel.efi" ]; then
-    menuentry 'Boot kernel.efi' --class efi --class os {
-        chainloader /loader/uefi/kernel.efi
-    }
-fi
-
-if [ "$grub_platform" = "efi" -a -e "/loader/uefi/shell.efi" ]; then
-    menuentry 'EFI shell' --class efi {
-        chainloader /loader/uefi/shell.efi
-    }
-fi
-`
-	return ioutil.WriteFile(fname, []byte(grubCfg), fs.FileMode(0644))
-}
-
 func (o *OciBoot) genESP(opts ISOOptions, fname string) error {
 	// If EFINone was given (nothing set), then use shim if there is one.
 	mode := opts.EFIBootMode
@@ -450,6 +474,8 @@ func (o *OciBoot) genESP(opts ISOOptions, fname string) error {
 		startupNshContent = append(startupNshContent, KernelEFI+" "+cmdline)
 		size = 64 * mib
 	}
+
+	startupNshContent = append(startupNshContent, "")
 
 	// need to write a startup.nsh here
 	if startupnsh, err := writeTemp([]byte(strings.Join(startupNshContent, "\n"))); err != nil {
@@ -538,6 +564,103 @@ func getImageName(ref string) string {
 	return toks[2]
 }
 
+// copy oci image at src to dest
+// for 'oci:' src or dest
+// if src or dest is of form:
+//    oci:dir:[name:]tag
+// Then attempt to support 'zot' layout
+// this should also wo
+func doCopy(src, dest string) error {
+	log.Debugf("copying %s -> %s", src, dest)
+	dpSrc, err := newOciPath(src, layoutNone)
+	if err != nil {
+		return err
+	}
+
+	dpDest, err := newOciPath(dest, layoutTree)
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("Copying %s -> %s", dpSrc, dpDest)
+	if err := os.MkdirAll(dpDest.OciDir(), 0755); err != nil {
+		return fmt.Errorf("Failed to create directory %s for %s", dpDest.OciDir(), dpDest)
+	}
+	/*
+		if strings.HasPrefix(normDest, "oci:") {
+			dir := strings.SplitN(normDest, ":", 3)[1]
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return fmt.Errorf("Failed to create dir for %s: %w", dest, err)
+			}
+		}
+	*/
+	if err := lib.ImageCopy(lib.ImageCopyOpts{Src: dpSrc.String(), Dest: dpDest.String(), Progress: os.Stderr}); err != nil {
+		return fmt.Errorf("Failed copy %s -> %s\n", dpSrc, dpDest)
+	}
+	return nil
+}
+
+// if the
+func zotToOCI(ref string) string {
+	return ""
+}
+
+// given ref like : oci:dir:[name:]tag
+// return either zot-layout format (tag in dir/name/index.json):
+//    oci:dir[/name]:tag
+// or oci layout format (name:tag in dir/index.json)
+//    oci:dir:[name:]tag
+func adjustOCIRef(ref string) (string, error) {
+	// ocit = "oci tree"
+	if strings.HasPrefix(ref, "ocit:") {
+		toks := strings.Split(ref, ":")
+		num := len(toks)
+		if num == 4 {
+			return "oci:" + toks[1] + "/" + toks[2] + ":" + toks[3], nil
+		}
+		return "", fmt.Errorf("ocit ref %s has %d toks", ref, num)
+	}
+	if !strings.HasPrefix(ref, "oci:") {
+		return ref, nil
+	}
+
+	var dirPath, name, tag string
+	toks := strings.Split(ref, ":")
+	num := len(toks)
+
+	if num <= 2 {
+		return "", fmt.Errorf("Not enough ':' in '%s'. Need 2 or 3, found %d", ref, num-1)
+	} else if num == 3 {
+		// "oci":dir:name -> turn this into oci:dir:name:latest
+		// which is what you'd get if you uploaded such a thing to zot
+		dirPath = toks[1]
+		name = toks[2]
+	} else if num == 4 {
+		dirPath = toks[1]
+		name = toks[2]
+		tag = toks[3]
+	} else {
+		return "", fmt.Errorf("Too many ':' in '%s'. Need 2 or 3, found %d", ref, num-1)
+	}
+
+	dirHasIndex := PathExists(filepath.Join(dirPath, "index.json"))
+	log.Debugf("dirPath %s : %t", dirPath, dirHasIndex)
+
+	if dirHasIndex {
+		// existing oci repo
+		if num == 3 {
+			return "oci:" + dirPath + ":" + name, nil
+		}
+		// single oci dir layout.
+		log.Debugf("ocilayout: %s -> %s", ref, "oci:"+dirPath+":"+name+":"+tag)
+		return "oci:" + dirPath + ":" + name + ":" + tag, nil
+	}
+
+	// zot layout
+	log.Debugf("zotlayout: %s -> %s", ref, "oci:"+dirPath+"/"+name+":"+tag)
+	return "oci:" + dirPath + "/" + name + ":" + tag, nil
+}
+
 // populate the directory with the contents of the iso.
 func (o *OciBoot) Populate(target string, opts ISOOptions) error {
 	if err := opts.Check(); err != nil {
@@ -552,20 +675,24 @@ func (o *OciBoot) Populate(target string, opts ISOOptions) error {
 	if o.BootLayer != "" {
 		log.Infof("Copying BootLayer %s -> %s:%s", o.BootLayer, ociDir, BootLayerName)
 		dest := "oci:" + ociDir + ":" + BootLayerName
-		err := lib.ImageCopy(lib.ImageCopyOpts{Src: o.BootLayer, Dest: dest, Progress: os.Stderr})
-		if err != nil {
-			return fmt.Errorf("Failed to copy image from BootLayer '%s'", o.BootLayer)
+		if err := doCopy(o.BootLayer, dest); err != nil {
+			return fmt.Errorf("Failed to copy image from BootLayer '%s': %w", o.BootLayer, err)
 		}
 	}
+
+	log.Infof("ok, copied the bootlayer name")
 
 	if len(o.Layers) != 0 {
 		ociDest := "oci:" + ociDir + ":"
 		for i, src := range o.Layers {
-			dest := ociDest + getImageName(src)
-			log.Infof("Copying Layer %d/%d: %s -> %s", i, len(o.Layers), src, dest)
-			err := lib.ImageCopy(lib.ImageCopyOpts{Src: src, Dest: dest, Progress: os.Stderr})
+			dSrc, err := newOciPath(src, layoutNone)
 			if err != nil {
-				return fmt.Errorf("Failed to copy %s: %w", src, err)
+				return err
+			}
+			dest := ociDest + dSrc.NameAndTag()
+			log.Infof("Copying Layer %d/%d: %s -> %s", i+1, len(o.Layers), src, dest)
+			if err := doCopy(src, dest); err != nil {
+				return fmt.Errorf("Failed to copy %s -> %s: %w", src, dest, err)
 			}
 		}
 	}
