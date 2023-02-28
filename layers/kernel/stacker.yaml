@@ -17,6 +17,7 @@ kernel-build:
     d=$(mktemp -d)
     mkdir -p "$d/boot/$ver" "$d/initrd" /export
 
+    # create firwmare.cpio.gz, core.cpio.gz and modules.cpio.gz in $d/initrd
     build-initrd build -v -v --modules --core "$d/initrd"
 
     chmod ugo+r "$d/initrd"/*
