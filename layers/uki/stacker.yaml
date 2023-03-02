@@ -15,7 +15,6 @@ uki-build:
     - stacker://kernel-build/export/initrd.tar
     - stacker://stubby-build/export/stubby.tar
     - ${{KEYS_REPO:https://github.com/project-machine/keys/archive/refs/heads/snakeoil.tar.gz}}
-    - ${{TRUST_BINARY:https://github.com/project-machine/trust/releases/download/0.0.1/trust}}
     - ${{MOSCTL_BINARY:https://github.com/project-machine/mos/releases/download/0.0.2/mosctl}}
   run: |
     #!/bin/bash -ex
@@ -27,7 +26,7 @@ uki-build:
 
     # basically find the 'keys' import by filtering out everything else we expect to be there.
     nonkeys="boot initrd stubby"
-    bins="trust mosctl"
+    bins="mosctl"
     mkdir $d/imports
     ln -s /stacker/* $d/imports/
     for e in $nonkeys; do
