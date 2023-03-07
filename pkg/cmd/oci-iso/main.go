@@ -258,13 +258,11 @@ func getBootKit(ref string) (func() error, string, error) {
 		if err != nil {
 			return cleanup, tmpd, err
 		}
+		cleanup = func() error { return os.RemoveAll(tmpd) }
 		path = tmpd
 		if err = ociExtractRef(ref, path); err != nil {
 			return cleanup, path, err
 		}
-
-		// cleanup = func() error { return os.RemoveAll(tmpd) }
-		cleanup = func() error { return nil }
 	} else {
 		// local dir existing.
 		path, err = filepath.Abs(ref)
