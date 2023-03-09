@@ -3,7 +3,9 @@ module github.com/project-machine/bootkit
 go 1.19
 
 require (
+	github.com/anuvu/disko v0.0.11
 	github.com/apex/log v1.9.0
+	github.com/diskfs/go-diskfs v1.3.0
 	github.com/opencontainers/image-spec v1.0.3-0.20211202222133-eacdcc10569b
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 	github.com/opencontainers/umoci v0.4.8-0.20220412065115-12453f247749
@@ -59,15 +61,19 @@ require (
 	github.com/mtrmac/gpgme v0.1.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/runc v1.1.2 // indirect
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.11.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
+	github.com/rekby/gpt v0.0.0-20200219180433-a930afbc6edc // indirect
+	github.com/rekby/mbr v0.0.0-20190325193910-2b19b9cdeebc // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rootless-containers/proto/go-proto v0.0.0-20210921234734-69430b6543fb // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/stefanberger/go-pkcs11uri v0.0.0-20201008174630-78d3cae3a980 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
