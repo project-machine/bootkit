@@ -73,7 +73,7 @@ soci_udev_settled() {
     devpath="$_RET"
 
     if [ ! -b "$devpath" ]; then
-        soci_debug "$dev did not exist yet"
+        soci_debug "$devpath did not exist yet"
         return 0
     fi
 
