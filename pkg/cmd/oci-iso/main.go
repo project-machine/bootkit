@@ -14,6 +14,10 @@ import (
 	"github.com/apex/log"
 	"golang.org/x/sys/unix"
 
+	"github.com/anuvu/disko"
+	"github.com/anuvu/disko/linux"
+	"github.com/anuvu/disko/partid"
+	"github.com/diskfs/go-diskfs/filesystem/fat32"
 	ispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/opencontainers/umoci"
 	"github.com/opencontainers/umoci/oci/casext"
@@ -63,6 +67,12 @@ var EFIBootModes = map[BootMode]string{
 type ISOOptions struct {
 	EFIBootMode BootMode
 	CommandLine string
+}
+
+type DiskOptions struct {
+	EFIBootMode BootMode
+	CommandLine string
+	Size        int64
 }
 
 func (opts ISOOptions) Check() error {
@@ -354,6 +364,124 @@ type OciBoot struct {
 	bootKitDir string
 }
 
+func genGptDisk(fpath string, fsize int64) (disko.Disk, error) {
+	disk := disko.Disk{
+		Name:       "disk",
+		Path:       fpath,
+		Size:       uint64(fsize),
+		SectorSize: 512,
+		Table:      disko.GPT,
+	}
+
+	if err := ioutil.WriteFile(fpath, []byte{}, 0600); err != nil {
+		return disk, fmt.Errorf("Failed to write to a temp file: %s", err)
+	}
+
+	if err := os.Truncate(fpath, fsize); err != nil {
+		return disk, fmt.Errorf("Failed create empty file: %s", err)
+	}
+
+	fs := disk.FreeSpaces()
+	if len(fs) != 1 {
+		return disk, fmt.Errorf("Expected 1 free space, found %d", fs)
+	}
+
+	parts := disko.PartitionSet{
+		1: disko.Partition{
+			Start:  fs[0].Start,
+			Last:   fs[0].Last,
+			Type:   partid.LinuxLVM,
+			Name:   "EFI",
+			ID:     disko.GenGUID(),
+			Number: uint(1),
+		}}
+
+	lSys := linux.System()
+	if err := lSys.CreatePartitions(disk, parts); err != nil {
+		return disk, err
+	}
+
+	disk.Partitions = parts
+
+	return disk, nil
+}
+
+func (o *OciBoot) CreateDisk(diskFile string, opts DiskOptions) error {
+
+	tmpd, err := ioutil.TempDir("", "OciBootCreate-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpd)
+
+	if err := o.Populate(tmpd); err != nil {
+		return err
+	}
+
+	if err := o.PopulateEFI(opts.EFIBootMode, opts.CommandLine, tmpd); err != nil {
+		return err
+	}
+
+	if opts.Size == 0 {
+		opts.Size = 1 * 1024 * 1024 * 1024
+	}
+
+	disk, err := genGptDisk(diskFile, opts.Size)
+	if err != nil {
+		return err
+	}
+
+	fp, err := os.OpenFile(diskFile, os.O_RDWR|os.O_EXCL, 0644)
+	if err != nil {
+		return err
+	}
+	defer fp.Close()
+
+	p := disk.Partitions[1]
+
+	const fsBlockSize = 512
+	fsSize := int64(p.Size())
+	fsStart := int64(p.Start)
+
+	fs, err := fat32.Create(fp, fsSize, fsStart, fsBlockSize, "EFIBOOT")
+	if err != nil {
+		return fmt.Errorf("Failed to create fat32 fs in %s: %v", fp.Name(), err)
+	}
+
+	err = filepath.Walk(tmpd, func(src string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		// Mkdir behaves like `mkdir -p`: creates the full tree and does return EEXIST if existing.
+		if info.IsDir() {
+			if err := fs.Mkdir(filepath.Dir(src)); err != nil {
+				return err
+			}
+		} else if info.Mode().IsRegular() {
+			srcFile, err := os.Open(filepath.Join(tmpd, src))
+			if err != nil {
+				return fmt.Errorf("Failed to read file %s", src)
+			}
+			defer srcFile.Close()
+
+			destFile, err := fs.OpenFile(src, os.O_CREATE|os.O_RDWR)
+			if err != nil {
+				return fmt.Errorf("Failed to open dest '%s': %v", src, err)
+			}
+			defer destFile.Close()
+
+			if _, err := io.Copy(destFile, srcFile); err != nil {
+				return fmt.Errorf("Failed to copy from %s -> %s: %v", srcFile.Name(), src, err)
+			}
+		} else {
+			return fmt.Errorf("%s is not dir or regular file\n", src)
+		}
+		return err
+	})
+
+	return err
+}
+
 // Create - create an iso in isoFile
 func (o *OciBoot) Create(isoFile string, opts ISOOptions) error {
 	if err := opts.Check(); err != nil {
@@ -369,7 +497,11 @@ func (o *OciBoot) Create(isoFile string, opts ISOOptions) error {
 
 	defer os.RemoveAll(tmpd)
 
-	if err := o.Populate(tmpd, opts); err != nil {
+	if err := o.genESP(opts, filepath.Join(tmpd, PathESPImage)); err != nil {
+		return err
+	}
+
+	if err := o.Populate(tmpd); err != nil {
 		return err
 	}
 
@@ -428,9 +560,15 @@ func ensureDir(dir string) error {
 	return os.MkdirAll(dir, 0755)
 }
 
-func (o *OciBoot) genESP(opts ISOOptions, fname string) error {
-	// If EFINone was given (nothing set), then use shim if there is one.
-	mode := opts.EFIBootMode
+// PopulateEFI - populate destd with files for an efi tree.
+//   destd will have efi/ under it.
+func (o *OciBoot) PopulateEFI(mode BootMode, cmdline string, destd string) error {
+	const EFIBootDir = "/efi/boot/"
+	const StartupNSHPath = "startup.nsh"
+	const KernelEFI = "kernel.efi"
+	const ShimEFI = "shim.efi"
+	const mib = 1024 * 1024
+
 	if mode == EFIAuto {
 		mode = EFIKernel
 		if PathExists(filepath.Join(o.bootKitDir, "bootkit/shim.efi")) {
@@ -438,69 +576,99 @@ func (o *OciBoot) genESP(opts ISOOptions, fname string) error {
 		}
 	}
 
-	cmdline := ""
+	fullCmdline := ""
 	if o.BootLayer != "" {
-		// FIXME: cmdline root= should be based on type of o.BootLayer (root=soci or root=oci)
-		cmdline = "root=soci:name=" + BootLayerName + ",dev=LABEL=" + ISOLabel
+		// FIXME: fullCmdline root= should be based on type of o.BootLayer (root=soci or root=oci)
+		fullCmdline = "root=soci:name=" + BootLayerName + ",dev=LABEL=" + ISOLabel
 	}
-	if opts.CommandLine != "" {
-		cmdline = cmdline + " " + opts.CommandLine
+	if cmdline != "" {
+		fullCmdline = fullCmdline + " " + cmdline
 	}
 
-	// const DefaultEFI, ShimLoadsEFI = "/EFI/BOOT/BOOTX64.EFI", "/EFI/BOOT/GRUBX64.EFI"
-	const EFIBootDir = "/EFI/BOOT/"
-	const StartupNSHPath = "STARTUP.NSH"
-	KernelEFI := "KERNEL.EFI"
-	ShimEFI := "SHIM.EFI"
-	const mib = 1024 * 1024
 	// should get the total size of all the source files and compute this.
-	var size int64 = 0
 	var startupNshContent = []string{
-		"FS0:",
-		"cd FS0:/EFI/BOOT",
+		"fs0:",
+		"cd fs0:" + EFIBootDir,
 	}
+
 	copies := map[string]string{}
 	if mode == EFIShim {
 		copies[filepath.Join(o.bootKitDir, "bootkit/shim.efi")] = EFIBootDir + ShimEFI
 		copies[filepath.Join(o.bootKitDir, "bootkit/kernel.efi")] = EFIBootDir + KernelEFI
 		startupNshContent = append(startupNshContent, ShimEFI+" "+KernelEFI+" "+cmdline)
-		// Right now kernel.efi is 48M, shim is 1M.  So 64M should be
-		// OK, but could get tight quickly.
-		size = 100 * mib
 	} else if mode == EFIKernel {
 		copies[filepath.Join(o.bootKitDir, "bootkit/kernel.efi")] = KernelEFI
 		startupNshContent = append(startupNshContent, KernelEFI+" "+cmdline)
-		size = 64 * mib
 	}
 
 	startupNshContent = append(startupNshContent, "")
 
-	// need to write a startup.nsh here
-	if startupnsh, err := writeTemp([]byte(strings.Join(startupNshContent, "\n"))); err != nil {
+	if err := os.MkdirAll(filepath.Join(destd, EFIBootDir), 0755); err != nil {
 		return err
-	} else {
-		copies[startupnsh] = EFIBootDir + StartupNSHPath
-		defer os.Remove(startupnsh)
 	}
 
-	if err := ensureDir(filepath.Dir(fname)); err != nil {
-		return fmt.Errorf("genESP: Failed to Mkdir(%s)", filepath.Dir(fname))
+	// need to write a startup.nsh here
+	efiboot := filepath.Join(destd, EFIBootDir)
+	if err := os.WriteFile(filepath.Join(efiboot, StartupNSHPath),
+		[]byte(strings.Join(startupNshContent, "\n")), 0644); err != nil {
+		return err
 	}
 
-	if err := genESP(fname, size, copies); err != nil {
+	for src, dst := range copies {
+		if err := copyFile(src, filepath.Join(destd, dst)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// return total of all files under path
+func getDirSize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return err
+	})
+	return size, err
+}
+
+func (o *OciBoot) genESP(opts ISOOptions, fname string) error {
+
+	tmpd, err := ioutil.TempDir("", "genESP-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpd)
+	if err := o.PopulateEFI(opts.EFIBootMode, opts.CommandLine, tmpd); err != nil {
+		return err
+	}
+	if err := genESP(fname, tmpd); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func genESP(fname string, size int64, copies map[string]string) error {
+// baseDir is expected to have efi/ in it.
+func genESP(fname string, baseDir string) error {
+	treeSize, err := getDirSize(baseDir)
+	if err != nil {
+		return err
+	}
+	// assumed fat filesystem overhead
+	const overhead = 1.05
+	size := int64(float64(treeSize) * overhead)
+
 	fp, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to open %s for Create: %w", fname, err)
 	}
-	// This path is here as I was debugging why the go-diskfs code wasn't creating
-	// something that worked with qemu ovmf (uefi didn't find the fs)
 	if err := unix.Ftruncate(int(fp.Fd()), size); err != nil {
 		log.Fatalf("Truncate '%s' failed: %s", fname, err)
 	}
@@ -512,41 +680,8 @@ func genESP(fname string, size int64, copies map[string]string) error {
 		return fmt.Errorf("mkfs.fat failed: %w", err)
 	}
 
-	tmpd, err := ioutil.TempDir("", "genESPSystem-")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(tmpd)
-
-	for src, dest := range copies {
-		log.Debugf("[%s] %s -> %s", fname, src, dest)
-		fullDest := filepath.Join(tmpd, dest)
-
-		if err := os.MkdirAll(filepath.Dir(fullDest), 0755); err != nil {
-			return err
-		}
-
-		fmt.Printf("[%s] %s -> %s\n", fname, src, dest)
-
-		srcFile, err := os.Open(src)
-		if err != nil {
-			return fmt.Errorf("genESP: Failed to open %s: %w", src, err)
-		}
-		defer srcFile.Close()
-
-		destFile, err := os.Create(fullDest)
-		if err != nil {
-			return fmt.Errorf("Failed to open dest '%s': %w", dest, err)
-		}
-		defer destFile.Close()
-
-		if _, err := io.Copy(destFile, srcFile); err != nil {
-			return fmt.Errorf("genESP: Failed to copy from %s -> %s: %w", src, dest, err)
-		}
-	}
-
 	cmd := []string{"env", "MTOOLS_SKIP_CHECK=1", "mcopy", "-s", "-v", "-i", fname,
-		filepath.Join(tmpd, "EFI"), "::EFI"}
+		filepath.Join(baseDir, "efi"), "::efi"}
 	log.Debugf("Running: %s", strings.Join(cmd, " "))
 	if err := RunCommand(cmd...); err != nil {
 		return err
@@ -596,11 +731,6 @@ func doCopy(src, dest string) error {
 		return fmt.Errorf("Failed copy %s -> %s\n", dpSrc, dpDest)
 	}
 	return nil
-}
-
-// if the
-func zotToOCI(ref string) string {
-	return ""
 }
 
 // given ref like : oci:dir:[name:]tag
@@ -660,15 +790,7 @@ func adjustOCIRef(ref string) (string, error) {
 }
 
 // populate the directory with the contents of the iso.
-func (o *OciBoot) Populate(target string, opts ISOOptions) error {
-	if err := opts.Check(); err != nil {
-		return err
-	}
-
-	if err := o.genESP(opts, filepath.Join(target, PathESPImage)); err != nil {
-		return err
-	}
-
+func (o *OciBoot) Populate(target string) error {
 	ociDir := filepath.Join(target, "oci")
 	if o.BootLayer != "" {
 		log.Infof("Copying BootLayer %s -> %s:%s", o.BootLayer, ociDir, BootLayerName)
@@ -748,7 +870,7 @@ func doMain(ctx *cli.Context) error {
 	}
 	args := ctx.Args()
 	if len(args) < 2 {
-		return fmt.Errorf("Need at very least 2 args: iso, bootkit-source")
+		return fmt.Errorf("Need at very least 2 args: output, bootkit-source")
 	}
 	ociBoot := OciBoot{}
 
@@ -780,15 +902,25 @@ func doMain(ctx *cli.Context) error {
 	}
 	efiMode = n
 
-	opts := ISOOptions{
-		EFIBootMode: efiMode,
-		CommandLine: ctx.String("cmdline"),
-	}
-
 	defer ociBoot.Cleanup()
 
-	if err := ociBoot.Create(output, opts); err != nil {
-		return err
+	if ctx.Bool("--cdrom") {
+		opts := ISOOptions{
+			EFIBootMode: efiMode,
+			CommandLine: ctx.String("cmdline"),
+		}
+
+		if err := ociBoot.Create(output, opts); err != nil {
+			return err
+		}
+	} else {
+		opts := DiskOptions{
+			EFIBootMode: efiMode,
+			CommandLine: ctx.String("cmdline"),
+		}
+		if err := ociBoot.CreateDisk(output, opts); err != nil {
+			return err
+		}
 	}
 
 	log.Infof("Wrote iso %s.", output)
@@ -806,6 +938,10 @@ func main() {
 		cli.BoolFlag{
 			Name:  "debug",
 			Usage: "display additional debug information on stderr",
+		},
+		cli.BoolFlag{
+			Name:  "cdrom",
+			Usage: "create a cdrom (iso9660) rather than a disk",
 		},
 		cli.StringFlag{
 			Name:  "boot",
