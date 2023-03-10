@@ -1014,8 +1014,8 @@ func doMain(ctx *cli.Context) error {
 func main() {
 
 	app := cli.NewApp()
-	app.Name = "oci-iso"
-	app.Usage = "create an iso to boot an oci layer: bootkit boot-layer oci-layers"
+	app.Name = "oci-boot"
+	app.Usage = "create disk or iso to boot an oci layer: bootkit boot-layer oci-layers"
 	app.Version = "1.0.1"
 	app.Action = doMain
 	app.Flags = []cli.Flag{
