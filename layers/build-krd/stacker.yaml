@@ -31,7 +31,7 @@ build-krd-pkg:
     # uki tools
     pkgs=( "${pkgs[@]}" efitools pigz )
 
-    sleep 2 && pkgtool install "${pkgs[@]}"
+    pkgtool install "${pkgs[@]}"
 
     # allow fakeroot to work so there are no errors when using 'mknod'
     # dracut unsets LD_LIBRARY_PATH and LD_PRELOAD. The 'sed' here comments

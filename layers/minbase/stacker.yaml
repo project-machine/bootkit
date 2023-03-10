@@ -20,5 +20,5 @@ minbase:
 
     cp /stacker/pkgtool /usr/local/bin
 
-    sleep 2 && pkgtool upgrade
+    pkgtool upgrade
     pkgtool install ca-certificates
