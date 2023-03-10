@@ -31,15 +31,10 @@ import (
 type BootMode int
 
 const (
-	PathESPImage    = "loader/images/efi-esp.img"
-	PathEltoritoCat = "loader/eltorito.cat"
-	PathEltoritoBin = "loader/images/grub-eltorito.bin"
-	PathIsohdpfxBin = "loader/images/isohdpfx.bin"
-	PathKernelEFI   = "loader/uefi/kernel.efi"
-	PathGrubCfg     = "loader/grub/grub.cfg"
-	Bios            = "bios"
-	BootLayerName   = "live-boot:latest"
-	ISOLabel        = "OCI-BOOT"
+	PathESPImage  = "loader/images/efi-esp.img"
+	Bios          = "bios"
+	BootLayerName = "live-boot:latest"
+	ISOLabel      = "OCI-BOOT"
 )
 
 const (
@@ -86,20 +81,7 @@ func (opts ISOOptions) Check() error {
 }
 
 func (opts ISOOptions) MkisofsArgs() ([]string, error) {
-	s := []string{}
-	/*
-		if opts.BiosBoot {
-			s = append(s,
-				"-eltorito-catalog", PathEltoritoCat,
-				"-eltorito-boot", PathEltoritoBin,
-				"-no-emul-boot", "-boot-load-size", "4", "-boot-info-table")
-		}
-	*/
-
-	s = append(s,
-		"-eltorito-alt-boot", "-e", PathESPImage, "-no-emul-boot", "-isohybrid-gpt-basdat")
-
-	return s, nil
+	return []string{"-eltorito-alt-boot", "-e", PathESPImage, "-no-emul-boot", "-isohybrid-gpt-basdat"}, nil
 }
 
 const layoutTree, layoutFlat, layoutNone = "tree", "flat", ""
