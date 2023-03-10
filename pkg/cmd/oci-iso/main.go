@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -51,6 +52,7 @@ const SBATContent = `sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/b
 stubby.puzzleos,2,PuzzleOS,stubby,1,https://github.com/puzzleos/stubby
 linux.puzzleos,1,PuzzleOS,linux,1,NOURL
 `
+const fat32BlockSize = 512
 
 var EFIBootModeStrings = map[string]BootMode{
 	"efi-auto":   EFIAuto,
@@ -73,6 +75,7 @@ type DiskOptions struct {
 	EFIBootMode BootMode
 	CommandLine string
 	Size        int64
+	Impl        string
 }
 
 func (opts ISOOptions) Check() error {
@@ -390,7 +393,7 @@ func genGptDisk(fpath string, fsize int64) (disko.Disk, error) {
 		1: disko.Partition{
 			Start:  fs[0].Start,
 			Last:   fs[0].Last,
-			Type:   partid.LinuxLVM,
+			Type:   partid.EFI,
 			Name:   "EFI",
 			ID:     disko.GenGUID(),
 			Number: uint(1),
@@ -406,13 +409,139 @@ func genGptDisk(fpath string, fsize int64) (disko.Disk, error) {
 	return disk, nil
 }
 
+// This will probably only work if the filesystem has just been created.
+func createAndCopyToFat32Mtools(srcDir string, diskFile string, fsStart int64, fsSize int64) error {
+	// trim the trailing /
+
+	const kb int64 = 1024
+	const secSize int64 = 512
+	size := fsSize / kb
+	if fsSize%kb != 0 {
+		return fmt.Errorf("Size '%d' is not multiple of %d", fsSize, kb)
+	}
+
+	args := []string{
+		"mkfs.fat",
+		"-F32",          // fat size - 32 for fat32 fs.
+		"-n" + ISOLabel, // filesystem label
+		fmt.Sprintf("--offset=%d", fsStart/secSize), // offset specified in sectors.
+		diskFile,
+		fmt.Sprintf("%d", size), // size in kb
+	}
+	log.Debugf("Formatting with %s", strings.Join(args, "  "))
+	if err := RunCommand(args...); err != nil {
+		return fmt.Errorf("Failed to create filesystem with %s: %v", strings.Join(args, " "), err)
+	}
+
+	fullPath, err := filepath.Abs(diskFile)
+	if err != nil {
+		return fmt.Errorf("Could not get full path to %s: %v", diskFile, err)
+	}
+
+	dirFp, err := os.Open(srcDir)
+	if err != nil {
+		return fmt.Errorf("Failed to open directory '%s': %v", srcDir, err)
+	}
+	files, err := dirFp.Readdirnames(0)
+	if err != nil {
+		dirFp.Close()
+		return fmt.Errorf("Failed to read files in '%s': %v", srcDir, err)
+	}
+	dirFp.Close()
+
+	args = []string{
+		"env", "MTOOLS_SKIP_CHECK=1",
+		"mcopy",
+		"-s", // recursive
+		"-v", // verbose
+		// -i filename@@offset
+		"-i", fmt.Sprintf("%s@@%d", fullPath, fsStart),
+	}
+	args = append(args, append(files, "::")...)
+	log.Debugf("Running in %s: %s", srcDir, strings.Join(args, " "))
+
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Dir = srcDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s: %s: %s", strings.Join(args, " "), err, string(output))
+	}
+	return nil
+}
+
+func createAndCopyToFat32DiskFS(srcDir string, diskFile string, fsStart int64, fsSize int64) error {
+	fp, err := os.OpenFile(diskFile, os.O_RDWR|os.O_EXCL, 0644)
+	if err != nil {
+		return err
+	}
+	defer fp.Close()
+	fs, err := fat32.Create(fp, fsSize, fsStart, fat32BlockSize, ISOLabel)
+	if err != nil {
+		return fmt.Errorf("Failed to create fat32 fs in %s: %v", fp.Name(), err)
+	}
+
+	// trim the trailing /
+	if strings.HasSuffix(srcDir, "/") {
+		srcDir = srcDir[0 : len(srcDir)-1]
+	}
+	return filepath.Walk(srcDir,
+		func(fname string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if fname == srcDir {
+				return nil
+			}
+			// src is /<tmpdir>/<path>
+			// dest gets /<path>
+			dest := fname[len(srcDir):]
+
+			if info.IsDir() {
+				// Mkdir behaves like `mkdir -p`: creates the full tree and does return EEXIST if existing.
+				if err := fs.Mkdir(filepath.Dir(dest)); err != nil {
+					return err
+				}
+			} else if info.Mode().IsRegular() {
+				srcFile, err := os.Open(fname)
+				if err != nil {
+					return fmt.Errorf("Failed to read file %s (dest=%s)", fname, dest)
+				}
+				defer srcFile.Close()
+
+				// Above does an Mkdir for the directory entry before any files in it
+				// But that does not seem sufficient (unable to open directory).
+				// maybe it needs a 'sync' or something?
+				dir := filepath.Dir(dest)
+				if err := fs.Mkdir(dir); err != nil {
+					return fmt.Errorf("Failed to create '%s' for '%s'", dir, dest)
+				}
+				destFile, err := fs.OpenFile(dest, os.O_CREATE|os.O_RDWR)
+				if err != nil {
+					return fmt.Errorf("Failed to open dest '%s': %v", dest, err)
+				}
+				defer destFile.Close()
+
+				fmt.Printf("copying to %s\n", dest)
+				if _, err := io.Copy(destFile, srcFile); err != nil {
+					return fmt.Errorf("Failed to copy from %s -> %s: %v", srcFile.Name(), dest, err)
+				}
+			} else {
+				return fmt.Errorf("%s is not dir or regular file\n", fname)
+			}
+			return err
+		})
+}
+
 func (o *OciBoot) CreateDisk(diskFile string, opts DiskOptions) error {
+	if err := o.getBootKit(); err != nil {
+		return err
+	}
 
 	tmpd, err := ioutil.TempDir("", "OciBootCreate-")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpd)
+	// defer os.RemoveAll(tmpd)
 
 	if err := o.Populate(tmpd); err != nil {
 		return err
@@ -431,54 +560,20 @@ func (o *OciBoot) CreateDisk(diskFile string, opts DiskOptions) error {
 		return err
 	}
 
-	fp, err := os.OpenFile(diskFile, os.O_RDWR|os.O_EXCL, 0644)
-	if err != nil {
-		return err
-	}
-	defer fp.Close()
-
 	p := disk.Partitions[1]
-
-	const fsBlockSize = 512
 	fsSize := int64(p.Size())
 	fsStart := int64(p.Start)
 
-	fs, err := fat32.Create(fp, fsSize, fsStart, fsBlockSize, "EFIBOOT")
-	if err != nil {
-		return fmt.Errorf("Failed to create fat32 fs in %s: %v", fp.Name(), err)
-	}
-
-	err = filepath.Walk(tmpd, func(src string, info os.FileInfo, err error) error {
-		if err != nil {
+	opts.Impl = "diskfs"
+	if opts.Impl == "diskfs" {
+		if err := createAndCopyToFat32DiskFS(tmpd, diskFile, fsStart, fsSize); err != nil {
 			return err
 		}
-		// Mkdir behaves like `mkdir -p`: creates the full tree and does return EEXIST if existing.
-		if info.IsDir() {
-			if err := fs.Mkdir(filepath.Dir(src)); err != nil {
-				return err
-			}
-		} else if info.Mode().IsRegular() {
-			srcFile, err := os.Open(filepath.Join(tmpd, src))
-			if err != nil {
-				return fmt.Errorf("Failed to read file %s", src)
-			}
-			defer srcFile.Close()
-
-			destFile, err := fs.OpenFile(src, os.O_CREATE|os.O_RDWR)
-			if err != nil {
-				return fmt.Errorf("Failed to open dest '%s': %v", src, err)
-			}
-			defer destFile.Close()
-
-			if _, err := io.Copy(destFile, srcFile); err != nil {
-				return fmt.Errorf("Failed to copy from %s -> %s: %v", srcFile.Name(), src, err)
-			}
-		} else {
-			return fmt.Errorf("%s is not dir or regular file\n", src)
+	} else {
+		if err := createAndCopyToFat32Mtools(tmpd, diskFile, fsStart, fsSize); err != nil {
+			return err
 		}
-		return err
-	})
-
+	}
 	return err
 }
 
@@ -497,7 +592,11 @@ func (o *OciBoot) Create(isoFile string, opts ISOOptions) error {
 
 	defer os.RemoveAll(tmpd)
 
-	if err := o.genESP(opts, filepath.Join(tmpd, PathESPImage)); err != nil {
+	imgPath := filepath.Join(tmpd, PathESPImage)
+	if err := os.MkdirAll(path.Dir(imgPath), 0755); err != nil {
+		return fmt.Errorf("Could not make dir for %s in tmpdir: %v", PathESPImage, err)
+	}
+	if err := o.genESP(opts, imgPath); err != nil {
 		return err
 	}
 
@@ -595,10 +694,10 @@ func (o *OciBoot) PopulateEFI(mode BootMode, cmdline string, destd string) error
 	if mode == EFIShim {
 		copies[filepath.Join(o.bootKitDir, "bootkit/shim.efi")] = EFIBootDir + ShimEFI
 		copies[filepath.Join(o.bootKitDir, "bootkit/kernel.efi")] = EFIBootDir + KernelEFI
-		startupNshContent = append(startupNshContent, ShimEFI+" "+KernelEFI+" "+cmdline)
+		startupNshContent = append(startupNshContent, ShimEFI+" "+KernelEFI+" "+fullCmdline)
 	} else if mode == EFIKernel {
 		copies[filepath.Join(o.bootKitDir, "bootkit/kernel.efi")] = KernelEFI
-		startupNshContent = append(startupNshContent, KernelEFI+" "+cmdline)
+		startupNshContent = append(startupNshContent, KernelEFI+" "+fullCmdline)
 	}
 
 	startupNshContent = append(startupNshContent, "")
@@ -904,7 +1003,7 @@ func doMain(ctx *cli.Context) error {
 
 	defer ociBoot.Cleanup()
 
-	if ctx.Bool("--cdrom") {
+	if ctx.Bool("cdrom") {
 		opts := ISOOptions{
 			EFIBootMode: efiMode,
 			CommandLine: ctx.String("cmdline"),
