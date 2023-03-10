@@ -39,7 +39,7 @@ const (
 	PathGrubCfg     = "loader/grub/grub.cfg"
 	Bios            = "bios"
 	BootLayerName   = "live-boot:latest"
-	ISOLabel        = "OCI-ISO"
+	ISOLabel        = "OCI-BOOT"
 )
 
 const (
