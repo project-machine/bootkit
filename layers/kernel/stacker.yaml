@@ -8,7 +8,7 @@ kernel-build:
     type: built
     tag: build-krd
   run: |
-    sleep 2 && pkgtool install linux-image-virtual
+    pkgtool install linux-image-virtual
     ver=$(cd /lib/modules && for d in */modules.dep; do echo ${d%/*}; done)
     set -- $ver
     [ $# -eq 0 ] && { echo "nothing found in /lib/modules"; exit 1; }
