@@ -10,7 +10,7 @@ buildenv-pkg:
   import:
     - https://go.dev/dl/go1.19.4.linux-amd64.tar.gz
   run: |
-    pkgtool install gcc git libc6-dev make pkg-config \
+    sleep 2 && pkgtool install gcc git libc6-dev make pkg-config \
       libcap-dev libacl1-dev libsquashfs-dev libdevmapper-dev \
       libcryptsetup-dev
 

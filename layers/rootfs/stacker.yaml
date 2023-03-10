@@ -7,7 +7,7 @@ rootfs:
     type: built
     tag: minbase
   run: |
-    pkgtool install systemd-sysv
+    sleep 2 && pkgtool install systemd-sysv
 
 rootfs-demo:
   from:

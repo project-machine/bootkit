@@ -8,7 +8,7 @@ stubby-build-env:
     type: built
     tag: minbase
   run: |
-    pkgtool install binutils gcc gnu-efi libc6-dev make tar
+    sleep 2 && pkgtool install binutils gcc gnu-efi libc6-dev make tar
 
 stubby-build:
   build_only: true
