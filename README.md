@@ -13,11 +13,11 @@ Bootkit publishes a oci image that contains these files:
  * ovmf-vars.fd, ovmf-code.fd - OVMF files for qemu that are populated
    with the uki-limited, uki-production, and uki-tpm keys.
 
-## oci-iso
-oci-iso is a tool that can be used to create a bootable iso from the
+## oci-boot
+oci-boot is a tool that can be used to create a bootable iso or disk image from the
 files in a bootkit.
 
-After building bootkit and building oci-iso, you can do:
+After building bootkit and building oci-boot, you can do:
 
     $ skopeo copy docker://.../rootfs:name-squashfs oci:/tmp/oci.d:rootfs-squashfs
     FIXME: need to soci sign the rootfs
@@ -34,4 +34,3 @@ Things that can be defined during this build:
    ie, setting to 'docker://' (the default) would use the official docker repos.
  * UBUNTU_MIRROR - this is a url to a ubuntu package mirror.
    default value is http://archive.ubuntu.com/ubuntu
-
