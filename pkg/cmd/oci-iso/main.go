@@ -35,6 +35,7 @@ const (
 	Bios          = "bios"
 	BootLayerName = "live-boot:latest"
 	ISOLabel      = "OCI-BOOT"
+	ImplDiskfs    = "diskfs"
 )
 
 const (
@@ -546,8 +547,7 @@ func (o *OciBoot) CreateDisk(diskFile string, opts DiskOptions) error {
 	fsSize := int64(p.Size())
 	fsStart := int64(p.Start)
 
-	opts.Impl = "diskfs"
-	if opts.Impl == "diskfs" {
+	if opts.Impl == ImplDiskfs {
 		if err := createAndCopyToFat32DiskFS(tmpd, diskFile, fsStart, fsSize); err != nil {
 			return err
 		}
@@ -999,6 +999,9 @@ func doMain(ctx *cli.Context) error {
 			EFIBootMode: efiMode,
 			CommandLine: ctx.String("cmdline"),
 		}
+		if ctx.Bool("use-diskfs") {
+			opts.Impl = ImplDiskfs
+		}
 		if err := ociBoot.CreateDisk(output, opts); err != nil {
 			return err
 		}
@@ -1023,6 +1026,11 @@ func main() {
 		cli.BoolFlag{
 			Name:  "cdrom",
 			Usage: "create a cdrom (iso9660) rather than a disk",
+		},
+		cli.StringFlag{
+			Name:   "use-diskfs",
+			Usage:  "use the go-diskfs for fat filesystem operations",
+			Hidden: true,
 		},
 		cli.StringFlag{
 			Name:  "boot",
