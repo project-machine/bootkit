@@ -25,7 +25,7 @@ jobs:
           stacker --version
       - name: build bootkit
         run: |
-          make build
+          make build STACKER_COMMON_OPTS=--debug
       - name: build pkg/oci-boot
         run: |
           make pkg-build
