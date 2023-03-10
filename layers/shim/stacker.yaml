@@ -10,7 +10,7 @@ shim-build-env:
   import:
     - https://github.com/rhboot/shim/releases/download/15.6/shim-15.6.tar.bz2
   run: |
-    pkgtool install libc6-dev openssl \
+    sleep 2 && pkgtool install libc6-dev openssl \
         wget gcc make bzip2 efitools
 
     mkdir /build
