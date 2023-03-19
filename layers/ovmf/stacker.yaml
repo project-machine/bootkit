@@ -27,14 +27,53 @@ ovmf-build:
     keysdir=$(echo "$d/x"/*)
     [ -d "$keysdir" ] || { echo "not exactly one dir in keys input"; exit 1; }
 
-    read guid < "$keysdir/uefi-db/guid"
-    cp /usr/share/OVMF/OVMF_CODE.fd "$d/ovmf/ovmf-code.fd"
+    getGuidCert() {
+      local kd="$1" n="$2" guid="" guidf="" certf=""
+      certf="$kd/$n/cert.pem"
+      guidf="$kd/$n/guid"
+      [ -d "$kd/$n" ] || {
+          echo "ERROR: no '$n' dir in $keysdir" 1>&2
+          return 1
+      }
+      [ -f "$certf" ] || {
+        echo "ERROR: no cert file for '$n' in $certf" 1>&2
+        return 1
+      }
+      [ -f "$guidf" ] || {
+        echo "ERROR: no guid file for '$n' in $guidf" 1>&2
+        return 1
+      }
+      # cannot check error here because guid files do not have trailing newline
+      # and 'read' will return non-zero.
+      local t="" tmpl="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+      read guid < "$guidf" || :
+      t=$(echo "$guid" | tr '0-9a-f' 'x')
+      [ "$t" = "$tmpl" ] || {
+        echo "ERROR: read '$guid' from $guidf. did not match template '$tmpl' ($t)" 1>&2
+        return 1
+      }
+
+      echo "$guid" "$certf"
+    }
+
+    codef=/usr/share/OVMF/OVMF_CODE.secboot.fd
+    varsf=/usr/share/OVMF/OVMF_VARS.fd
+    cp "$codef" "$d/ovmf/ovmf-code.fd"
+    cp "$varsf" "$d/ovmf/ovmf-vars-empty.fd"
+    set +x
+    set -- \
+       --set-pk  $(getGuidCert "$keysdir" uefi-pk) \
+       --add-kek $(getGuidCert "$keysdir" uefi-kek) \
+       --add-db  $(getGuidCert "$keysdir" uefi-db)
+    [ $# -eq 9 ] || { echo "getting keys failed $#: $*" 1>&2; exit 1; }
+
+    set -x
     virt-fw-vars \
-      "--input=/usr/share/OVMF/OVMF_VARS.fd" \
+      "--input=$varsf" \
       "--output=$d/ovmf/ovmf-vars.fd" \
-      --no-microsoft \
       --secure-boot \
-      --add-db "$guid" $keysdir/uefi-db/cert.pem
+      --no-microsoft \
+      "$@"
 
     mkdir /export
     tar -C "$d" -cvf /export/ovmf.tar ovmf

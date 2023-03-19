@@ -30,6 +30,7 @@ bootkit-assemble:
     cp "$d/shim/shim.efi" "$prepd/shim.efi"
     cp "$d/uki/kernel.efi" "$prepd/kernel.efi"
     cp "$d/ovmf/ovmf-vars.fd" "$prepd/ovmf-vars.fd"
+    cp "$d/ovmf/ovmf-vars-empty.fd" "$prepd/ovmf-vars-empty.fd"
     cp "$d/ovmf/ovmf-code.fd" "$prepd/ovmf-code.fd"
     cp /stacker/boot.tar /stacker/modules.tar "$prepd"
 
