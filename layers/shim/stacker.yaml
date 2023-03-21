@@ -40,8 +40,7 @@ shim-build:
     cd "$shimd"
 
     # copy build configuration and certs
-    mkdir config
-    cat > config/Make.local <<EOF
+    cat > Make.local <<EOF
     # UEFI shim build configuration
     #
 
@@ -52,8 +51,8 @@ shim-build:
     VENDOR_DB_FILE = $shimd/vendor_db.esl
     EOF
 
-    cat > config/sbat.csv <<EOF
-    config/shim.puzzleos,1,PuzzleOS,shim,15.6-202207-1,https://github.com/puzzleos
+    cat > sbat.csv <<EOF
+    shim.puzzleos,1,PuzzleOS,shim,15.6-202207-1,https://github.com/puzzleos
     EOF
 
     mkdir $shimd/certs
@@ -79,7 +78,6 @@ shim-build:
 
     make
     sha256sum *.efi
-
 
     mkdir $d/shim
     cp $shimd/shimx64.efi $d/shim/shim-unsigned.efi
