@@ -898,6 +898,14 @@ func (o *OciBoot) Populate(target string) error {
 		}
 	}
 
+	modSquashDest := path.Join(target, "krd", "modules.squashfs")
+	if err := os.MkdirAll(filepath.Dir(modSquashDest), 0755); err != nil {
+		return fmt.Errorf("Failed to create directory for modules.squashfs: %v", err)
+	}
+	if err := copyFile(filepath.Join(o.bootKitDir, "bootkit/modules.squashfs"), modSquashDest); err != nil {
+		return fmt.Errorf("Failed to copy modules.squashfs to media: %v", err)
+	}
+
 	for src, dest := range o.Files {
 		if err := copyFile(src, path.Join(target, dest)); err != nil {
 			return fmt.Errorf("Failed to copy file '%s' to iso path '%s': %w", src, dest, err)

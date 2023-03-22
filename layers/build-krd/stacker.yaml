@@ -19,6 +19,7 @@ build-krd-pkg:
         cryptsetup-bin 
         kdump-tools 
         lvm2 
+        squashfs-tools
         systemd-sysv 
         # mosctl
         libsquashfs1
