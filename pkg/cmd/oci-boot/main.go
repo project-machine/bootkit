@@ -524,7 +524,7 @@ func (o *OciBoot) CreateDisk(diskFile string, opts DiskOptions) error {
 	if err != nil {
 		return err
 	}
-	// defer os.RemoveAll(tmpd)
+	defer os.RemoveAll(tmpd)
 
 	if err := o.Populate(tmpd); err != nil {
 		return err
