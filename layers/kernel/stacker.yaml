@@ -32,7 +32,9 @@ kernel-build:
 
     tar -C "$d" -cf /export/boot.tar boot/$ver/
     tar -C "$d" -cf /export/initrd.tar initrd/
-    tar -C / -cf /export/modules.tar lib/modules/$ver
+
+    ( cd /lib/modules &&
+      mksquashfs $ver/ /export/modules.squashfs -xattrs -comp xz -keep-as-directory )
     echo "$ver" > /export/version
 
     rm -Rf "$d"

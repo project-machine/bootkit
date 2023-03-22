@@ -15,7 +15,7 @@ bootkit-assemble:
     - stacker://uki-build/export/uki.tar
     - stacker://ovmf-build/export/ovmf.tar
     - stacker://kernel-build/export/boot.tar
-    - stacker://kernel-build/export/modules.tar
+    - stacker://kernel-build/export/modules.squashfs
   run: |
     #!/bin/bash -ex
     d=$(mktemp -d)
@@ -32,7 +32,7 @@ bootkit-assemble:
     cp "$d/ovmf/ovmf-vars.fd" "$prepd/ovmf-vars.fd"
     cp "$d/ovmf/ovmf-vars-empty.fd" "$prepd/ovmf-vars-empty.fd"
     cp "$d/ovmf/ovmf-code.fd" "$prepd/ovmf-code.fd"
-    cp /stacker/boot.tar /stacker/modules.tar "$prepd"
+    cp /stacker/boot.tar /stacker/modules.squashfs "$prepd"
 
     mkdir /export
     tar -C "$d" -cf /export/bootkit.tar bootkit/
