@@ -14,8 +14,9 @@ uki-build:
     - stacker://kernel-build/export/boot.tar
     - stacker://kernel-build/export/initrd.tar
     - stacker://stubby-build/export/stubby.tar
-    - ${{KEYS_REPO:https://github.com/project-machine/keys/archive/refs/heads/snakeoil.tar.gz}}
     - ${{MOSCTL_BINARY:https://github.com/project-machine/mos/releases/download/0.0.7/mosctl}}
+    - path: ${{HOME}}/.local/share/machine/trust/keys/${{KEYSET}}/
+      dest: /keysimport/
   run: |
     #!/bin/bash -ex
     d=$(mktemp -d)
@@ -36,15 +37,8 @@ uki-build:
         rm "$d/imports/$e"
     done
 
-    set -- $d/imports/*
-    [ $# -eq 0 ] && { echo "no key import found"; exit 1; }
-    [ $# -eq 1 ] || { echo "found imports that could be a key: $*"; exit 1; }
-    keyimport=$1
-
-    mkdir "$d/keyx"
-    tar -C "$d/keyx" -xf "$keyimport"
-    keydir=$(echo "$d/keyx"/*)
-    [ -d "$keydir" ] || { echo "found not exactly one dir in $keyimport"; exit 1; }
+    mv /keysimport/${{KEYSET}} /keys
+    keydir=/keys
 
     initrd_d="$d/initrd"
     tar -C "$d" -xf /stacker/initrd.tar

@@ -20,6 +20,9 @@ jobs:
         run: |
           sudo add-apt-repository -y ppa:project-machine/squashfuse
           sudo apt-get install squashfuse
+          wget https://github.com/project-machine/keys/archive/refs/heads/snakeoil.tar.gz
+          mkdir -p ~/.local/share/machine/trust/keys
+          (cd ~/.local/share/machine/trust/keys; tar zxf ~/snakeoil.tar.gz; mv keys-snakeoil snakeoil)
           sudo wget --progress=dot:mega -O /usr/bin/stacker \
               https://github.com/project-stacker/stacker/releases/download/v1.0.0-rc4/stacker
           sudo chmod 755 /usr/bin/stacker

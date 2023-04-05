@@ -17,16 +17,18 @@ ovmf-build:
     type: built
     tag: ovmf-build-env
   import:
-    - ${{KEYS_REPO:https://github.com/project-machine/keys/archive/refs/heads/snakeoil.tar.gz}}
+    - path: ${{HOME}}/.local/share/machine/trust/keys/${{KEYSET}}/
+      dest: /keysimport/
   run: |
     d=$(mktemp -d)
     trap "rm -Rf $d" EXIT
 
-    mkdir "$d/ovmf" "$d/x"
-    tar -C "$d/x" -xf /stacker/*.tar.gz
-    keysdir=$(echo "$d/x"/*)
-    [ -d "$keysdir" ] || { echo "not exactly one dir in keys input"; exit 1; }
+    mkdir "$d/ovmf"
+    mv /keysimport/${{KEYSET}} /keys
+    keysdir="/keys"
 
+    echo xxx
+    ls -l /keys
     getGuidCert() {
       local kd="$1" n="$2" guid="" guidf="" certf=""
       certf="$kd/$n/cert.pem"
