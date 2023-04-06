@@ -64,10 +64,53 @@ try_modules() {
     }
 }
 
+
+wait_on_zot() {
+	count=5
+	up=0
+	while [[ $count -gt 0 ]]; do
+		count=$((count - 1))
+        soci_debug "Waiting on zot: $count/5"
+		if [ ! -d /proc/$pid ]; then
+			soci_die "zot failed to start or died"
+			exit 1
+		fi
+		up=1
+		soci_log_run curl -f http://127.0.0.1:5000/v2/ || up=0
+		if [ $up -eq 1 ]; then break; fi
+		sleep 1
+	done
+	if [ $up -eq 0 ]; then
+		soci_die "Timed out waiting for zot"
+		exit 1
+	fi
+}
+
+start_zot() {
+    cat > /etc/systemd/system/soci-zot.service << EOF
+[Unit]
+Description=Start zot for soci mount
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/zot serve /etc/zot-config.json
+StandardInput=tty-force
+StandardOutput=inherit
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl enable soci-zot.service
+    systemctl start soci-zot.service
+    wait_on_zot
+}
+
 soci_udev_settled() {
     ${SOCI_ENABLED} || return 0
     # if SOCI_dev is set, wait for it.
-    local dev="${SOCI_dev}" path="${SOCI_path}" name="${SOCI_name}" devpath=""
+    local dev="${SOCI_dev}" path="${SOCI_path}" name="${SOCI_name}" devpath="" repo="${SOCI_repo}"
 
     short2dev "$dev"
     devpath="$_RET"
@@ -106,24 +149,46 @@ soci_udev_settled() {
             soci_die "could not create directories: '$lower', '$upper', '$work'"
         }
 
+        if [ -n "$repo" -a "$repo" = "local" ]; then
+            # our zot config expects to find its cache under /oci
+            mkdir -p /oci
+            mount --bind "${dmp}/oci" /oci
+            soci_debug "Starting a zot service"
+            start_zot
+            export repo="127.0.0.1:5000"
+        fi
+
         [ "$SOCI_DEBUG" = "true" ] && debug="--debug"
-        set -- mosctl $debug soci mount \
-            "--capath=/manifestCA.pem" \
-            "--repo-base=oci:$dmp/$path" \
-            "--metalayer=$name" \
-            "--mountpoint=$lower"
+        mkdir -p /factory/secure
+        chmod 700 /factory/secure
+        cp /manifestCA.pem /factory/secure/
+
+        mkdir -p /config /scratch-writes /atomfs-store
+        find /oci
+        set -- mosctl $debug mount \
+            "--target=livecd" \
+            "--dest=$rootd" \
+            "${repo}/$name"
 
         if soci_log_run "$@"; then
             soci_info "successfully ran: $*"
         else
-            soci_die "extract-soci '$name' '$rootd' failed with exit code $?"
+            ret=$?
+            out=$(curl http://127.0.0.1:5000/v2/_catalog)
+            soci_info "catalog: ${out}"
+            out=$(curl http://127.0.0.1:5000/v2/machine/livecd/tags/list)
+            soci_info "tags: ${out}"
+            out=$(curl http://127.0.0.1:5000/v2/machine/livecd/manifests/1.0.0)
+            soci_info "manifest: ${out}"
+            soci_info "log: $(</run/initramfs/log)"
+            soci_die "extract-soci '$name' '$rootd' failed with exit code $ret"
             return 1
         fi
-        soci_log_run mount -t overlay \
-            -o "lowerdir=$lower,upperdir=$upper,workdir=$work" soci-rootfs "$rootd" || {
-            soci_die "overlay mount failed"
-            return 1
-        }
+
+        soci_log_run cat /proc/self/mounts
+        soci_log_run cat /proc/modules
+        soci_log_run stat /sysroot
+        soci_log_run ls -l $lower
 
         try_modules "$dmp/krd/modules.squashfs" "$rootd" || {
             soci_die "Failed mounting modules"

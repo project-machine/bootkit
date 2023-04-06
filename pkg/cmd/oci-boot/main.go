@@ -348,6 +348,7 @@ type OciBoot struct {
 	Layers     []string          `json:"layers"`
 	cleanups   []func() error
 	bootKitDir string
+	RepoDir    string            `json:"repodir"`
 }
 
 func genGptDisk(fpath string, fsize int64) (disko.Disk, error) {
@@ -883,6 +884,17 @@ func (o *OciBoot) Populate(target string) error {
 
 	log.Infof("ok, copied the bootlayer name")
 
+	repoDir := filepath.Join(target, "zot-cache")
+	if o.RepoDir != "" {
+		src := o.RepoDir + "/"
+		dest := repoDir + "/"
+		args := []string{"rsync", "-va", src, dest}
+		if err := RunCommand(args...); err != nil {
+			return fmt.Errorf("Failed syncing %s/ -> %s: %w", src, dest, err)
+		}
+	}
+
+
 	if len(o.Layers) != 0 {
 		ociDest := "oci:" + ociDir + ":"
 		for i, src := range o.Layers {
@@ -966,6 +978,14 @@ func doMain(ctx *cli.Context) error {
 	output := args[0]
 	ociBoot.BootKit = args[1]
 
+	// TODO - we should probably instead just accept the distribution spec
+	// url for the manifest, and ourselves copy the manifest, any needed
+	// layers, and the referring artifacts.  For now just rsync the backing
+	// directories.
+	if ctx.IsSet("sync-repodir") {
+		ociBoot.RepoDir = ctx.String("sync-repodir")
+	}
+
 	if len(args) > 2 {
 		ociBoot.BootLayer = args[2]
 	}
@@ -1048,6 +1068,10 @@ func main() {
 		cli.StringFlag{
 			Name:  "cmdline",
 			Usage: "cmdline: additional parameters for kernel command line",
+		},
+		cli.StringSliceFlag{
+			Name:  "sync-repodir",
+			Usage: "Synchronize given repo directory to /zot-cache",
 		},
 		cli.StringSliceFlag{
 			Name:  "insert",

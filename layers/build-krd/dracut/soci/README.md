@@ -5,7 +5,7 @@ It depends on `mosctl soci mount` to do most of the heavy lifting.
 It supports the following argument format for 'root='.  Order of the
 comma (,) delimited key/value pairs is not important.
 
-    root=soci:name=<layer-name>,dev=<device>[,path=path][,mdpath=<path>]
+    root=soci:name=<layer-name>,dev=<device>[,path=path][,mdpath=<path>][,repo=<url>|local]
 
  * 'name' is required, and is the layer name of the soci layer.  The name
     is the value of the 'org.opencontainers.image.ref.name' attribute.
@@ -27,6 +27,10 @@ comma (,) delimited key/value pairs is not important.
  * 'mdpath': not required, default is '/run/initramfs/oci'.  This will
    be passed as '--metadata-path' to `mos soci mount`.  It is only
    relavant if the type of the layer is squashfs.
+
+ * 'url' refers to a distribution-compliant OCI repository from which
+   to fetch the manifest.  if the value is "local", then a local zot
+   will be spun up against the backing store under @path on @dev.
 
 ## Example
 Assuming that you have a disk or partition with a filesystem label 'oci-data'

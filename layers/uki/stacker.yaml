@@ -14,7 +14,9 @@ uki-build:
     - stacker://kernel-build/export/boot.tar
     - stacker://kernel-build/export/initrd.tar
     - stacker://stubby-build/export/stubby.tar
-    - ${{MOSCTL_BINARY:https://github.com/project-machine/mos/releases/download/0.0.7/mosctl}}
+    - ${{MOSCTL_BINARY:https://github.com/project-machine/mos/releases/download/0.0.8/mosctl}}
+    - https://github.com/project-zot/zot/releases/download/v1.4.3/zot-linux-amd64-minimal
+    - zot-config.json
     - path: ${{HOME}}/.local/share/machine/trust/keys/${{KEYSET}}/
       dest: /keysimport/
   run: |
@@ -29,6 +31,7 @@ uki-build:
     nonkeys="boot initrd stubby"
     bins="mosctl"
     mkdir $d/imports
+    mkdir /zot-cache
     ln -s /stacker/* $d/imports/
     for e in $nonkeys; do
         rm -f $d/imports/$e.tar
@@ -63,11 +66,15 @@ uki-build:
     cp "$keydir/manifest-ca/cert.pem" "$workd/manifestCA.pem"
     mkdir -p "$workd/usr/bin"
     ( cd /stacker && cp -v $bins $workd/usr/bin/ )
+    cp -v /stacker/zot-linux-amd64-minimal "$workd/usr/bin/zot"
     chmod 755 "$workd/usr/bin"/*
     # dracut-install will pick up all the deps for these binaries
     # FIXME: problem here is that any overlapping deps will be present
     # twice in the initramfs cpio (once from core and once from here)
     /usr/lib/dracut/dracut-install -D "$workd" --ldd --resolvelazy $workd/usr/bin/*
+    mkdir -p "$workd/etc/"
+    cp /stacker/zot-config.json "$workd/etc/"
+    /usr/lib/dracut/dracut-install -D "$workd" $workd/etc/zot-config.json
 
     find "$workd" ! -type d
     ( set -o pipefail

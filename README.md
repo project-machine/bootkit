@@ -22,7 +22,7 @@ After building bootkit and building oci-boot, you can do:
     $ skopeo copy docker://.../rootfs:name-squashfs oci:/tmp/oci.d:rootfs-squashfs
     FIXME: need to soci sign the rootfs
 
-    $ ./pkg/oci-iso out.iso \
+    $ ./pkg/oci-boot out.img \
         oci:$PWD/../build-bootkit/oci:bootkit-squashfs \
         oci:/tmp/oci.d:rootfs-squashfs
 
