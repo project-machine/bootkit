@@ -30,10 +30,3 @@ STACKER_PUBLISH = stacker $(STACKER_OPTS) publish \
 # It expands to:
 # [ -n "value-of-$VARNAME" ] || { echo "rule-name ...VARNAME"; exit 1; }
 required_var = [ -n "$(value $1)" ] || { echo "$@ requires environment variable $1"; exit 1; }
-
-
-debug:
-	@echo MAIN_VERSION=$(MAIN_VERSION)
-	@echo MAIN_SERIAL=$(MAIN_SERIAL)
-	@echo BUILD_D=$(BUILD_D)
-	@echo SUBS=$(STACKER_SUBS)
