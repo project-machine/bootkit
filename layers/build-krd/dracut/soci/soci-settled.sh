@@ -163,7 +163,14 @@ soci_udev_settled() {
         chmod 700 /factory/secure
         cp /manifestCA.pem /factory/secure/
 
-        mkdir -p /config /scratch-writes /atomfs-store
+        # expand the pcr7data if needed
+        [ -f "/pcr7data.cpio" ] && [ ! -d "/pcr7data" ] && \
+            ( mkdir -p /pcr7data; cd /pcr7data; cpio -id < /pcr7data.cpio )
+        # switch_root pivots into /sysroot and will delete anything on the initrd's rootfs; use a tmpfs mount to avoid
+        for d in config scratch-writes atomfs-store; do
+            mkdir -p "/$d"
+            mount -t tmpfs "$d" "/$d"
+        done
         find /oci
         set -- mosctl $debug mount \
             "--target=livecd" \
@@ -185,9 +192,21 @@ soci_udev_settled() {
             return 1
         fi
 
+        # move the mounts under the new root so switch_root does not delete contents
+        for d in config scratch-writes atomfs-store; do
+            mkdir -p "/$rootd/$d"
+            mount --move "/$d" "$rootd/$d"
+        done
+
+        cp "/pcr7data.cpio" "$rootd/"
+        ( mkdir -p "$rootd/pcr7data"; cd "$rootd/pcr7data"; cpio -id < /pcr7data.cpio )
+
         soci_log_run cat /proc/self/mounts
         soci_log_run cat /proc/modules
         soci_log_run stat /sysroot
+        soci_log_run ls -l /pcr7data
+        soci_log_run ls -l /sysroot
+        soci_log_run ls -l /sysroot/pcr7data
         soci_log_run ls -l $lower
 
         try_modules "$dmp/krd/modules.squashfs" "$rootd" || {
@@ -196,10 +215,6 @@ soci_udev_settled() {
         }
 
         : > "${SOCI_FINISHED_MARK}"
-        # if layer was 'tar' and there were no modules, then we can could unmount the iso fs.
-        # if modules are mounted, or squashfs type layer, then this will fail.
-        out=$(umount "$dmp" 2>&1) ||
-            soci_debug "umount $dmp did did not succeed. Probably squashfs."
     fi
     return 0
 }
