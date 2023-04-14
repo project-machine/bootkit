@@ -17,6 +17,7 @@ build-krd-pkg:
         binutils # strip
         busybox-initramfs 
         cryptsetup-bin 
+        curl
         kdump-tools 
         lvm2 
         squashfs-tools

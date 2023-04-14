@@ -22,17 +22,15 @@ shim-build:
     type: built
     tag: shim-build-env
   import:
-    - ${{KEYS_REPO:https://github.com/project-machine/keys/archive/refs/heads/snakeoil.tar.gz}}
+    - path: ${{HOME}}/.local/share/machine/trust/keys/${{KEYSET}}/
+      dest: /keysimport/
   run: |
     d=$(mktemp -d)
     trap "rm -Rf $d" EXIT
 
     cd $d
-    mkdir x
-    cd x
-    tar -xf /stacker/*.tar.gz
-    keydir=$(echo $d/x/*)
-    [ -d "$keydir" ] || { echo "bad keys import. didn't have a single top level dir"; exit 1; }
+    mv /keysimport/${{KEYSET}} /keys
+    keydir="/keys"
 
     shimd=$(echo /build/shim-*)
     [ -d "$shimd" ] || { echo "no single shim dir in /build"; exit 1; }

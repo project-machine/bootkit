@@ -7,10 +7,6 @@ include common.mk
 build:
 	$(STACKER_RBUILD)
 
-.PHONY: pkg-build
-pkg-build:
-	cd pkg && $(STACKER_BUILD)
-
 .PHONY: publish
 publish:
 	@$(call required_var,PUBLISH_USER)

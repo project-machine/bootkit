@@ -9,6 +9,7 @@ if ! command -v getarg >/dev/null; then
     . ${LIB_DRACUT_D:-/usr/lib/dracut}/../dracut-lib.sh
 fi
 
+SOCI_DEBUG="true"
 msg() {
     local lvl="$1" con=false pre="" up="" idle=""
     shift
