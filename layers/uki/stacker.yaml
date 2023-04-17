@@ -14,7 +14,7 @@ uki-build:
     - stacker://kernel-build/export/boot.tar
     - stacker://kernel-build/export/initrd.tar
     - stacker://stubby-build/export/stubby.tar
-    - ${{MOSCTL_BINARY:https://github.com/project-machine/mos/releases/download/0.0.8/mosctl}}
+    - ${{MOSCTL_BINARY:https://github.com/project-machine/mos/releases/download/0.0.9/mosctl}}
     - https://github.com/project-zot/zot/releases/download/v1.4.3/zot-linux-amd64-minimal
     - zot-config.json
     - path: ${{HOME}}/.local/share/machine/trust/keys/${{KEYSET}}/

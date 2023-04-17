@@ -16,6 +16,7 @@ build-krd-pkg:
     pkgs=( "${pkgs[@]}" 
         binutils # strip
         busybox-initramfs 
+        cpio
         cryptsetup-bin 
         curl
         kdump-tools 
