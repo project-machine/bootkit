@@ -17,31 +17,23 @@ uki-build:
     - ${{MOSCTL_BINARY:https://github.com/project-machine/mos/releases/download/0.0.9/mosctl}}
     - https://github.com/project-zot/zot/releases/download/v1.4.3/zot-linux-amd64-minimal
     - zot-config.json
-    - path: ${{HOME}}/.local/share/machine/trust/keys/${{KEYSET}}/
-      dest: /keysimport/
+    - path: ${{KEYSET_D}}/
+      dest: /import/keys/
   run: |
     #!/bin/bash -ex
     d=$(mktemp -d)
     cd "$d"
     trap "rm -Rf $d" EXIT
 
+    keydir=$(echo /import/keys/*)
+    [ -d "$keydir" ]
+
     mkdir $d/export
 
     # basically find the 'keys' import by filtering out everything else we expect to be there.
     nonkeys="boot initrd stubby"
     bins="mosctl"
-    mkdir $d/imports
     mkdir /zot-cache
-    ln -s /stacker/* $d/imports/
-    for e in $nonkeys; do
-        rm -f $d/imports/$e.tar
-    done
-    for e in $bins; do
-        rm "$d/imports/$e"
-    done
-
-    mv /keysimport/${{KEYSET}} /keys
-    keydir=/keys
 
     initrd_d="$d/initrd"
     tar -C "$d" -xf /stacker/initrd.tar
