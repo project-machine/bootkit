@@ -1,7 +1,6 @@
 KEYSET ?= snakeoil
 DOCKER_BASE ?= docker://
 UBUNTU_MIRROR ?= http://archive.ubuntu.com/ubuntu
-HOME ?= \$HOME
 
 STACKER_SUBS = \
 	--substitute=KEYSET=$(KEYSET) \
