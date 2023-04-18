@@ -149,6 +149,8 @@ soci_udev_settled() {
             soci_die "could not create directories: '$lower', '$upper', '$work'"
         }
 
+        soci_log_run tpm2_pcrread sha256:7
+
         if [ -n "$repo" -a "$repo" = "local" ]; then
             # our zot config expects to find its cache under /oci
             mkdir -p /oci
@@ -191,6 +193,29 @@ soci_udev_settled() {
             soci_die "extract-soci '$name' '$rootd' failed with exit code $ret"
             return 1
         fi
+
+        action=$(<${rootd}/mos-action)
+        case "$action" in
+            install)
+               soci_log_run mosctl preinstall
+               soci_info "Preinstall completed"
+               ;;
+            provision)
+               # XXX note this is still not alright - provisioning
+               # iso should be limited-signed, not production-signed.
+               soci_info "Provisioning iso, proceeding"
+               ;;
+            livecd)
+               # extend pcr7
+               soci_log_run tpm2_pcrextend "7:sha256=b7135cbb321a66fa848b07288bd008b89bd5b7496c4569c5e1a4efd5f7c8e0a7"
+               soci_info "PCR7 has been extended.  Enjoy your livecd."
+               ;;
+            *)
+               soci_log_run mosctl initrd-setup
+               soci_info "TPM is ready for general boot"
+               ;;
+        esac
+
 
         # move the mounts under the new root so switch_root does not delete contents
         for d in config scratch-writes atomfs-store; do

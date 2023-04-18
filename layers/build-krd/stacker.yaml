@@ -23,6 +23,7 @@ build-krd-pkg:
         lvm2 
         squashfs-tools
         systemd-sysv 
+        tpm2-tools
         # mosctl
         libsquashfs1
         libgpgme11
