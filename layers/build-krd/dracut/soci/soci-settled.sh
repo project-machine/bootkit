@@ -107,21 +107,45 @@ EOF
     wait_on_zot
 }
 
+mount_boot_rootfs() {
+    mkdir -p /boot/efi /atomfs-store /scratch-writes /config
+    ls /dev/disk/by-partlabel
+    mount /dev/disk/by-partlabel/efi /boot/efi
+    mount /dev/disk/by-partlabel/machine-config /config
+    mount /dev/disk/by-partlabel/machine-store /atomfs-store
+    mount /dev/disk/by-partlabel/machine-scratch /scratch-writes
+    set -- mosctl $debug create-boot-fs --dest $rootd
+    if soci_log_run "$@"; then
+        soci_info "successfully ran: $*"
+    else
+        ret=$?
+        out=$(curl http://127.0.0.1:5000/v2/_catalog)
+        soci_info "catalog: ${out}"
+        soci_die "create-boot-fs failed with exit code $ret"
+        return 1
+    fi
+
+    mkdir -p $rootfd/boot/efi
+    mount --move /boot/efi $rootd/boot/efi
+}
+
 soci_udev_settled() {
     ${SOCI_ENABLED} || return 0
     # if SOCI_dev is set, wait for it.
     local dev="${SOCI_dev}" path="${SOCI_path}" name="${SOCI_name}" devpath="" repo="${SOCI_repo}"
 
-    short2dev "$dev"
-    devpath="$_RET"
+    if [ -n "$dev" ]; then
+        short2dev "$dev"
+        devpath="$_RET"
 
-    if [ ! -b "$devpath" ]; then
-        soci_debug "$devpath did not exist yet"
-        return 0
+        if [ ! -b "$devpath" ]; then
+            soci_debug "$devpath did not exist yet"
+            return 0
+        fi
     fi
 
     local dmp="/run/initramfs/.socidev"
-    if ! ismounted "$dmp"; then
+    if [ -n "$dev" ] && ! ismounted "$dmp"; then
         mkdir -p "$dmp" || {
             soci_die "Failed to create dir '$dmp'"
             return 1
@@ -168,30 +192,31 @@ soci_udev_settled() {
         # expand the pcr7data if needed
         [ -f "/pcr7data.cpio" ] && [ ! -d "/pcr7data" ] && \
             ( mkdir -p /pcr7data; cd /pcr7data; cpio -id < /pcr7data.cpio )
-        # switch_root pivots into /sysroot and will delete anything on the initrd's rootfs; use a tmpfs mount to avoid
-        for d in config scratch-writes atomfs-store; do
-            mkdir -p "/$d"
-            mount -t tmpfs "$d" "/$d"
-        done
-        find /oci
-        set -- mosctl $debug mount \
-            "--target=livecd" \
-            "--dest=$rootd" \
-            "${repo}/$name"
 
-        if soci_log_run "$@"; then
-            soci_info "successfully ran: $*"
+        if [ "$name" = "mosboot" ]; then
+            mount_boot_rootfs
+            exit 1
         else
-            ret=$?
-            out=$(curl http://127.0.0.1:5000/v2/_catalog)
-            soci_info "catalog: ${out}"
-            out=$(curl http://127.0.0.1:5000/v2/machine/livecd/tags/list)
-            soci_info "tags: ${out}"
-            out=$(curl http://127.0.0.1:5000/v2/machine/livecd/manifests/1.0.0)
-            soci_info "manifest: ${out}"
-            soci_info "log: $(</run/initramfs/log)"
-            soci_die "extract-soci '$name' '$rootd' failed with exit code $ret"
-            return 1
+            # switch_root pivots into /sysroot and will delete anything on the initrd's rootfs; use a tmpfs mount to avoid
+            for d in config scratch-writes atomfs-store; do
+                mkdir -p "/$d"
+                mount -t tmpfs "$d" "/$d"
+            done
+
+            set -- mosctl $debug mount \
+                "--target=livecd" \
+                "--dest=$rootd" \
+                "${repo}/$name"
+
+            if soci_log_run "$@"; then
+                soci_info "successfully ran: $*"
+            else
+                ret=$?
+                out=$(curl http://127.0.0.1:5000/v2/_catalog)
+                soci_info "catalog: ${out}"
+                soci_die "extract-soci '$name' '$rootd' failed with exit code $ret"
+                return 1
+            fi
         fi
 
         action=$(<${rootd}/mos-action)

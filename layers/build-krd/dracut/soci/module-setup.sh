@@ -38,6 +38,9 @@ install() {
         tpm2_startauthsession tpm2_verifysignature tpm2_nvwrite
     inst /usr/lib/x86_64-linux-gnu/libtss2-tcti-device.so.0
     inst curl
+    inst git # needed for manifest reading, for now
+    #inst /usr/ib/git-core/git-upload-pack
+    inst_multiple /usr/lib/git-core/*
     inst chmod
     inst cpio
     inst find  # for debug
