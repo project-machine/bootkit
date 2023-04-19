@@ -35,7 +35,7 @@ install() {
         tpm2_createprimary tpm2_flushcontext tpm2_getcap tpm2_loadexternal \
         tpm2_nvread tpm2_nvreadpublic tpm2_pcrextend tpm2_pcrread \
         tpm2_policyauthorize tpm2_policynv tpm2_policypcr \
-        tpm2_startauthsession tpm2_verifysignature
+        tpm2_startauthsession tpm2_verifysignature tpm2_nvwrite
     inst /usr/lib/x86_64-linux-gnu/libtss2-tcti-device.so.0
     inst curl
     inst chmod

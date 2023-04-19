@@ -197,7 +197,7 @@ soci_udev_settled() {
         action=$(<${rootd}/mos-action)
         case "$action" in
             install)
-               soci_log_run mosctl preinstall
+               soci_log_run mosctl --debug preinstall
                soci_info "Preinstall completed"
                ;;
             provision)
@@ -226,13 +226,10 @@ soci_udev_settled() {
         cp "/pcr7data.cpio" "$rootd/"
         ( mkdir -p "$rootd/pcr7data"; cd "$rootd/pcr7data"; cpio -id < /pcr7data.cpio )
 
-        soci_log_run cat /proc/self/mounts
         soci_log_run cat /proc/modules
-        soci_log_run stat /sysroot
-        soci_log_run ls -l /pcr7data
         soci_log_run ls -l /sysroot
-        soci_log_run ls -l /sysroot/pcr7data
-        soci_log_run ls -l $lower
+        mkdir -p "${rootd}/factory/secure"
+        cp -f /manifestCA.pem "${rootd}/factory/secure/"
 
         try_modules "$dmp/krd/modules.squashfs" "$rootd" || {
             soci_die "Failed mounting modules"
