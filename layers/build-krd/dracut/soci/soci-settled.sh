@@ -109,10 +109,11 @@ EOF
 
 mount_boot_rootfs() {
     mkdir -p /boot/efi /atomfs-store /scratch-writes /config
-    mount /dev/sdb1 /mnt/efi
-    mount /dev/sdb2 /config
-    mount /dev/sdb2 /atomfs-store
-    mount /dev/sdb3 /scratch-writes
+    ls /dev/disk/by-partlabel
+    mount /dev/disk/by-partlabel/efi /boot/efi
+    mount /dev/disk/by-partlabel/machine-config /config
+    mount /dev/disk/by-partlabel/machine-store /atomfs-store
+    mount /dev/disk/by-partlabel/machine-scratch /scratch-writes
     set -- mosctl $debug create-boot-fs --dest $rootd
     if soci_log_run "$@"; then
         soci_info "successfully ran: $*"
