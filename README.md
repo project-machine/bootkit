@@ -4,7 +4,7 @@
 The build of bootkit uses a (named) keyset as created by
 (trust)[https://github.com/project-machine/trust].
 
-This can be defined by substituting KEYSET during the stacker build.
+This can be defined by substituting KEYSET_D during the stacker build.
 
 Bootkit publishes a oci image that contains these files:
  * boot.tar - tarball of normal linux distribution boot/ files.
@@ -29,8 +29,9 @@ After building bootkit and building oci-boot, you can do:
 
 ## Build
 Things that can be defined during this build:
- * KEYSET - default value snakeoil.  For this to work, you should first
-   run "trust keyset add snakeoil".
+ * KEYSET_D - Make sets this to the user's machine/trust/keys/snakeoil
+   directory.  The keyset (snakeoil) can be changed by setting KEYSET
+   variable to make (`make KEYSET=myset`).
  * DOCKER_BASE - this should reference a docker url that has 'ubuntu:jammy' in it
    ie, setting to 'docker://' (the default) would use the official docker repos.
  * UBUNTU_MIRROR - this is a url to a ubuntu package mirror.

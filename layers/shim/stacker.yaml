@@ -22,15 +22,15 @@ shim-build:
     type: built
     tag: shim-build-env
   import:
-    - path: ${{HOME}}/.local/share/machine/trust/keys/${{KEYSET}}/
-      dest: /keysimport/
+    - path: ${{KEYSET_D}}/
+      dest: /import/keys/
   run: |
     d=$(mktemp -d)
     trap "rm -Rf $d" EXIT
 
     cd $d
-    mv /keysimport/${{KEYSET}} /keys
-    keydir="/keys"
+    keydir=$(echo /import/keys/*)
+    [ -d "$keydir" ]
 
     shimd=$(echo /build/shim-*)
     [ -d "$shimd" ] || { echo "no single shim dir in /build"; exit 1; }

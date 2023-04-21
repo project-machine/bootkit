@@ -17,24 +17,22 @@ ovmf-build:
     type: built
     tag: ovmf-build-env
   import:
-    - path: ${{HOME}}/.local/share/machine/trust/keys/${{KEYSET}}/
-      dest: /keysimport/
+    - path: ${{KEYSET_D}}/
+      dest: /import/keys/
   run: |
     d=$(mktemp -d)
     trap "rm -Rf $d" EXIT
 
     mkdir "$d/ovmf"
-    mv /keysimport/${{KEYSET}} /keys
-    keysdir="/keys"
+    keydir=$(echo /import/keys/*)
+    [ -d "$keydir" ]
 
-    echo xxx
-    ls -l /keys
     getGuidCert() {
       local kd="$1" n="$2" guid="" guidf="" certf=""
       certf="$kd/$n/cert.pem"
       guidf="$kd/$n/guid"
       [ -d "$kd/$n" ] || {
-          echo "ERROR: no '$n' dir in $keysdir" 1>&2
+          echo "ERROR: no '$n' dir in $keydir" 1>&2
           return 1
       }
       [ -f "$certf" ] || {
@@ -64,9 +62,9 @@ ovmf-build:
     cp "$varsf" "$d/ovmf/ovmf-vars-empty.fd"
     set +x
     set -- \
-       --set-pk  $(getGuidCert "$keysdir" uefi-pk) \
-       --add-kek $(getGuidCert "$keysdir" uefi-kek) \
-       --add-db  $(getGuidCert "$keysdir" uefi-db)
+       --set-pk  $(getGuidCert "$keydir" uefi-pk) \
+       --add-kek $(getGuidCert "$keydir" uefi-kek) \
+       --add-db  $(getGuidCert "$keydir" uefi-db)
     [ $# -eq 9 ] || { echo "getting keys failed $#: $*" 1>&2; exit 1; }
 
     set -x
