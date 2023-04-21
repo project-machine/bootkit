@@ -189,10 +189,6 @@ soci_udev_settled() {
         chmod 700 /factory/secure
         cp /manifestCA.pem /factory/secure/
 
-        # expand the pcr7data if needed
-        [ -f "/pcr7data.cpio" ] && [ ! -d "/pcr7data" ] && \
-            ( mkdir -p /pcr7data; cd /pcr7data; cpio -id < /pcr7data.cpio )
-
         if [ "$name" = "mosboot" ]; then
             mount_boot_rootfs
             exit 1
@@ -245,16 +241,31 @@ soci_udev_settled() {
         # move the mounts under the new root so switch_root does not delete contents
         for d in config scratch-writes atomfs-store; do
             mkdir -p "/$rootd/$d"
-            mount --move "/$d" "$rootd/$d"
+            mount --move "/$d" "$rootd/$d" || {
+                soci_die "Unable to mount --move /$d $root/$d"
+                return 1
+            }
         done
 
-        cp "/pcr7data.cpio" "$rootd/"
-        ( mkdir -p "$rootd/pcr7data"; cd "$rootd/pcr7data"; cpio -id < /pcr7data.cpio )
+        # copy the pcr7data to persist past initramfs
+        mkdir -p /run/machine && cp -r /pcr7data /run/machine/ || {
+            soci_die "Unable to copy pcr7data to /run/machine"
+            return 1
+        }
+        ## FIXME - I don't like the polution of target's /
+        ln -s /run/machine/pcr7data /pcr7data || {
+            soci_die "Failed to symlink /pcr7data -> /run/machine/pcr7data"
+            return 1
+        }
+
+        mkdir -p "${rootd}/factory/secure"
+        cp -f /manifestCA.pem "${rootd}/factory/secure/"
 
         soci_log_run cat /proc/modules
         soci_log_run ls -l /sysroot
-        mkdir -p "${rootd}/factory/secure"
-        cp -f /manifestCA.pem "${rootd}/factory/secure/"
+        soci_log_run stat "$rootd"
+        soci_log_run ls -l "$rootd"
+        soci_log_run ls -l $lower
 
         try_modules "$dmp/krd/modules.squashfs" "$rootd" || {
             soci_die "Failed mounting modules"

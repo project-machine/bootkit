@@ -7,8 +7,6 @@ kernel-build:
   from:
     type: built
     tag: build-krd
-  import:
-    - ${{KEYS_DIR}}/${{KEYSET}}/pcr7data
   run: |
     pkgtool install linux-image-virtual
     ver=$(cd /lib/modules && for d in */modules.dep; do echo ${d%/*}; done)
@@ -18,9 +16,6 @@ kernel-build:
 
     d=$(mktemp -d)
     mkdir -p "$d/boot/$ver" "$d/initrd" /export
-
-    # put pcr7data into place for initrd
-    ( cd /stacker/pcr7data; find . | cpio -o -H newc > /pcr7data.cpio )
 
     # create firwmare.cpio.gz, core.cpio.gz and modules.cpio.gz in $d/initrd
     build-initrd build -v -v --modules --core "$d/initrd"
