@@ -19,10 +19,12 @@ build-krd-pkg:
         cpio
         cryptsetup-bin 
         curl
+        git
         kdump-tools 
         lvm2 
         squashfs-tools
         systemd-sysv 
+        tpm2-tools
         # mosctl
         libsquashfs1
         libgpgme11
