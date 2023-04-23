@@ -1,0 +1,40 @@
+config:
+  prerequisites:
+    - ../build-krd/stacker.yaml
+
+mos-build:
+  build_only: true
+  from:
+    type: built
+    tag: build-krd
+  import:
+    - ${{MOSCTL_BINARY:https://github.com/project-machine/mos/releases/download/0.0.9/mosctl}}
+    - ${{ZOT_BINARY:https://github.com/project-zot/zot/releases/download/v1.4.3/zot-linux-amd64-minimal}}
+    - zot-config.json
+  run: |
+    d=$(mktemp -d)
+    cd "$d"
+    trap "rm -Rf $d" EXIT
+
+    workd="$d/workd"
+    mkdir "$workd"
+
+    mkdir -p "$workd/etc/"
+    cp /stacker/zot-config.json "$workd/etc/"
+
+    mkdir -p "$workd/usr/bin"
+    for bin in mosctl:mosctl zot-linux-amd64-minimal:zot ; do
+      t=$workd/usr/bin/${bin#*:}
+      cp -v /stacker/${bin%:*} $t
+      chmod 755 $t
+    done
+
+    # dracut-install will pick up all the deps for these binaries
+    # FIXME: problem here is that any overlapping deps will be present
+    # twice in final initramfs cpio (once from core and once from here)
+    /usr/lib/dracut/dracut-install -D "$workd" --ldd --resolvelazy "$workd/usr/bin"/*
+
+    create-cpio "$workd" "$d/initrd/mos.cpio.gz"
+
+    mkdir /export
+    tar -C "$d" -cf /export/mos.tar initrd/

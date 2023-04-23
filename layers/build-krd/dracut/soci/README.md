@@ -41,3 +41,11 @@ and metadata.yaml.signed signed with the private key for manifestCert.pem.
 You can mount that with:
 
     root=soci:name=rootfs-soci,dev=LABEL=oci-data,path=oci-data
+
+## Notes
+ * This module's install does *not* copy in all it's dependencies.  This is
+   so that those can be added to the initramfs later.  Specifically,
+   the root=soci functionality depends on mosctl and zot binaries.
+
+   Those are collected and built into a cpio archive in
+   layers/mos/stacker.yaml.

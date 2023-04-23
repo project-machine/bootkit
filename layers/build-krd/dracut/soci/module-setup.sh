@@ -24,9 +24,6 @@ install() {
     inst_hook initqueue/settled 50 "$moddir/soci-settled.sh"
     inst_script "$moddir/soci-lib.sh" /usr/lib/dracut/soci-lib.sh
 
-    # Signdata is required for secure boot
-    inst "/pcr7data.cpio"
-
     # these are required to make LABEL= work well.
     inst "/lib/udev/cdrom_id"
     inst "/lib/udev/rules.d/60-cdrom_id.rules"
@@ -42,7 +39,6 @@ install() {
     #inst /usr/ib/git-core/git-upload-pack
     inst_multiple /usr/lib/git-core/*
     inst chmod
-    inst cpio
     inst find  # for debug
 
     return 0

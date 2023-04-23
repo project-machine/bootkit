@@ -14,3 +14,7 @@ publish:
 	@$(call required_var,PUBLISH_URL)
 	@echo publishing with $(PUBLISH_USER):SECRET to $(PUBLISH_URL)
 	@$(STACKER_PUBLISH)
+
+.PHONY: stacker-clean
+stacker-clean:
+	stacker $(STACKER_OPTS) clean

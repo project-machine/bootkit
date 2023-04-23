@@ -1,8 +1,8 @@
 config:
   prerequisites:
-    - ../minbase/stacker.yaml
     - ../build-krd/stacker.yaml
     - ../kernel/stacker.yaml
+    - ../mos/stacker.yaml
     - ../stubby/stacker.yaml
 
 uki-build:
@@ -13,12 +13,11 @@ uki-build:
   import:
     - stacker://kernel-build/export/boot.tar
     - stacker://kernel-build/export/initrd.tar
+    - stacker://mos-build/export/mos.tar
     - stacker://stubby-build/export/stubby.tar
-    - ${{MOSCTL_BINARY:https://github.com/project-machine/mos/releases/download/0.0.9/mosctl}}
-    - https://github.com/project-zot/zot/releases/download/v1.4.3/zot-linux-amd64-minimal
-    - zot-config.json
     - path: ${{KEYSET_D}}/
       dest: /import/keys/
+
   run: |
     #!/bin/bash -ex
     d=$(mktemp -d)
@@ -30,14 +29,14 @@ uki-build:
 
     mkdir $d/export
 
-    # basically find the 'keys' import by filtering out everything else we expect to be there.
-    nonkeys="boot initrd stubby"
-    bins="mosctl"
-    mkdir /zot-cache
-
     initrd_d="$d/initrd"
     tar -C "$d" -xf /stacker/initrd.tar
     [ -d "$initrd_d" ] || { echo "initrd.tar did not create 'initrd'"; exit 1; }
+
+    # mos is expected to create initrd/mos.cpio.gz
+    tar -C "$d" -xf /stacker/mos.tar
+    [ -f "$initrd_d/mos.cpio.gz" ] ||
+        { echo "mos.tar did not produce mos.cpio.gz"; exit 1; }
 
     tar -C "$d" -xf /stacker/boot.tar
     # boot should produce boot/<uname -r>/
@@ -51,39 +50,22 @@ uki-build:
     [ -f "$stubefi" ] ||
         { echo "stubby.tar did not have a stubby/stubby.efi"; exit 1; }
 
-    workd="$d/workd"
-    mkdir "$workd"
+    keyworkd="$d/keyworkd"
+    mkdir "$keyworkd"
+    cp "$keydir/manifest-ca/cert.pem" "$keyworkd/manifestCA.pem"
+    cp -r "$keydir/pcr7data" "$keyworkd/pcr7data"
 
-    addinitrd="$d/add-initrd.cpio"
-    cp "$keydir/manifest-ca/cert.pem" "$workd/manifestCA.pem"
-    mkdir -p "$workd/usr/bin"
-    ( cd /stacker && cp -v $bins $workd/usr/bin/ )
-    cp -v /stacker/zot-linux-amd64-minimal "$workd/usr/bin/zot"
-    chmod 755 "$workd/usr/bin"/*
-    # dracut-install will pick up all the deps for these binaries
-    # FIXME: problem here is that any overlapping deps will be present
-    # twice in the initramfs cpio (once from core and once from here)
-    /usr/lib/dracut/dracut-install -D "$workd" --ldd --resolvelazy $workd/usr/bin/*
-    mkdir -p "$workd/etc/"
-    cp /stacker/zot-config.json "$workd/etc/"
-    /usr/lib/dracut/dracut-install -D "$workd" $workd/etc/zot-config.json
-
-    find "$workd" ! -type d
-    ( set -o pipefail
-      cd "$workd" &&
-      find * ! -type d |
-         cpio --create --owner=+0:+0 -H newc --quiet
-    ) > "$addinitrd"
+    create-cpio "$keyworkd" "$initrd_d/keys.cpio.gz"
 
     initrd="$d/initrd.cpio.gz"
     # smash initrds together
     ( set +x;
-      for f in "${initrd_d}"/*.cpio* "$addinitrd"; do
+      for f in "${initrd_d}"/*.cpio*; do
+        echo "adding $f" 1>&2
         case "$f" in
           *.gz) pigz --decompress --to-stdout "$f" || exit;;
           *) cat "$f" || exit;;
         esac
-        echo "added $f" 1>&2
       done  |
         pigz --to-stdout
     ) > "$initrd"
@@ -122,10 +104,6 @@ uki-build:
         "--key=$keydir/uki-production/privkey.pem" \
         "--output=$d/uki/kernel.efi" "$d/kernel.efi"
     chmod 644 "$d/uki/kernel.efi"
-
-    # copy the manifest-ca/cert.pem into the output
-    # so users can easily see.
-    cp "$keydir/manifest-ca/cert.pem" "$d/uki/manifest-ca-cert.pem"
 
     mkdir /export
     tar -C "$d" -cf /export/uki.tar uki

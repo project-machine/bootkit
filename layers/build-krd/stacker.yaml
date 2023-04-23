@@ -7,8 +7,6 @@ build-krd-pkg:
   from:
     type: built
     tag: minbase
-  import:
-    - ../../tools/build-initrd
   run: |
     #!/bin/bash -ex
     pkgs=( )
@@ -63,10 +61,17 @@ build-krd:
     tag: build-krd-pkg
   import:
     - ../../tools/build-initrd
+    - ../../tools/create-cpio
     - dracut/
   run: |
 
-    cp /stacker/build-initrd /usr/local/bin
+    for bin in build-initrd create-cpio; do
+      t=$workd/usr/bin/$bin
+      cp -v /stacker/$bin "$t"
+      chmod 755 "$t"
+    done
+
+    ( cd /stacker && cp -v build-initrd create-cpio /usr/local/bin  )
 
     cp /stacker/dracut/bootkit.conf /etc/dracut.conf.d/dracut-atom.conf
     for d in /stacker/dracut/*; do
