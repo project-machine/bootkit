@@ -43,7 +43,7 @@ You can mount that with:
     root=soci:name=rootfs-soci,dev=LABEL=oci-data,path=oci-data
 
 ## Notes
- * This module's install does *not* copy in all it's dependencies.  This is
+ * This module's install does *not* copy in all its dependencies.  This is
    so that those can be added to the initramfs later.  Specifically,
    the root=soci functionality depends on mosctl and zot binaries.
 
