@@ -247,19 +247,22 @@ soci_udev_settled() {
             }
         done
 
-        # copy the pcr7data to persist past initramfs
-        mkdir -p /run/machine && cp -r /pcr7data /run/machine/ || {
-            soci_die "Unable to copy pcr7data to /run/machine"
-            return 1
-        }
-        ## FIXME - I don't like the polution of target's /
-        ln -s /run/machine/pcr7data /pcr7data || {
-            soci_die "Failed to symlink /pcr7data -> /run/machine/pcr7data"
+        mkdir -p "${rootd}/factory/secure"
+        cp -f /manifestCA.pem "${rootd}/factory/secure/"
+
+        # copy the pcr7data to persist past initramfs. we expect this to change.
+        mkdir -p "$rootd/factory/initrd" &&
+            cp -r /pcr7data "$rootd/factory/initrd/pcr7data" || {
+                soci_die "Unable to copy pcr7data to /run/machine"
+                return 1
+            }
+        ## FIXME - I don't like the pollution of target's /,  but right now
+        ## 'trust provision' expects data at /pcr7data.
+        ln -s "/factory/initrd/pcr7data" "$rootd/pcr7data" || {
+            soci_die "Failed to symlink /pcr7data -> /factory/initrd/pcr7data"
             return 1
         }
 
-        mkdir -p "${rootd}/factory/secure"
-        cp -f /manifestCA.pem "${rootd}/factory/secure/"
 
         soci_log_run cat /proc/modules
         soci_log_run ls -l /sysroot
