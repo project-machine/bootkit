@@ -74,7 +74,9 @@ shim-build:
     cd $shimd
     cat sbat.csv >> data/sbat.csv && cat data/sbat.csv
 
-    make
+    ncpus=$(grep -c processor /proc/cpuinfo) || ncpus=1
+    make "-j${ncpus}"
+
     sha256sum *.efi
 
     mkdir $d/shim
