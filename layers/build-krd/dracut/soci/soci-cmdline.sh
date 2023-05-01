@@ -15,6 +15,8 @@ soci_initrd_start() {
         command -v "$dep" >/dev/null 2>&1 || missing="$missing, binary '$dep'"
     done
 
+    mkdir -p /pcr7data
+    (cd /pcr7data; cpio -id < /etc/pcr7data.cpio)
     for dep in /pcr7data/ /manifestCA.pem ; do
         [ -e "$dep" ] || missing="$missing, path '$dep'"
     done
