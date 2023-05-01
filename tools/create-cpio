@@ -23,7 +23,6 @@ EOF
     fail "$0: expected 2 args, got $#"
 }
 
-
 dir="$1"
 out="$2"
 
@@ -39,7 +38,7 @@ fi
 command -v pigz >/dev/null 2>&1 && cprog=pigz || cprog=gzip
 set -o pipefail
 cd "$dir" || fail "failed cd to $dir"
-find * ! -type d |
+find * |
     cpio --create --owner=+0:+0 -H newc --quiet |
         $cprog --to-stdout || {
         rc=$?
