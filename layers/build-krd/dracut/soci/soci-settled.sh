@@ -222,9 +222,9 @@ soci_udev_settled() {
                soci_info "Preinstall completed"
                ;;
             provision)
-               # XXX note this is still not alright - provisioning
-               # iso should be limited-signed, not production-signed.
-               soci_info "Provisioning iso, proceeding"
+               soci_log_run tpm2_pcrread sha256:7 -o /sysroot/pcr7.bin > /sysroot/pcr7.out
+               soci_log_run tpm2_pcrextend "7:sha256=b7135cbb321a66fa848b07288bd008b89bd5b7496c4569c5e1a4efd5f7c8e0a7"
+               soci_info "PCR7 has been extended.  Ready to provision."
                ;;
             livecd)
                # extend pcr7
