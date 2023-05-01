@@ -7,6 +7,10 @@ include common.mk
 build:
 	$(STACKER_RBUILD)
 
+.PHONY: pkg-build
+pkg-build:
+	cd pkg && $(STACKER_BUILD)
+
 LAYERS := $(shell cd $(TOP_D)/layers && \
 				  for d in *; do [ -f "$$d/stacker.yaml" ] && echo "$$d"; done )
 
