@@ -51,13 +51,9 @@ uki-build:
         { echo "stubby.tar did not have a stubby/stubby.efi"; exit 1; }
 
     keyworkd="$d/keyworkd"
-    mkdir -p "$keyworkd/etc"
+    mkdir "$keyworkd"
     cp "$keydir/manifest-ca/cert.pem" "$keyworkd/manifestCA.pem"
-    # For some reason, copying the directory doesn't seem to work.
-    # The kernel ends up not unpacking it.
-    # Also, create-cpio always compresses, but this must not be compressed,
-    # so do it by hand.
-    (cd "$keydir/pcr7data"; find . | cpio -o -H newc > "$keyworkd/etc/pcr7data.cpio")
+    cp -r "$keydir/pcr7data" "$keyworkd/pcr7data"
 
     create-cpio "$keyworkd" "$initrd_d/keys.cpio.gz"
 
