@@ -34,6 +34,7 @@ install() {
         tpm2_policyauthorize tpm2_policynv tpm2_policypcr \
         tpm2_startauthsession tpm2_verifysignature tpm2_nvwrite
     inst /usr/lib/x86_64-linux-gnu/libtss2-tcti-device.so.0
+    inst cpio
     inst curl
     inst git # needed for manifest reading, for now
     #inst /usr/ib/git-core/git-upload-pack
