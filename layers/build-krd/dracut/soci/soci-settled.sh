@@ -239,12 +239,10 @@ soci_udev_settled() {
 
 
         # move the mounts under the new root so switch_root does not delete contents
-        # cannot move-mount out of a shared parent mount, so make sure / is private
-        mount --make-private /
         for d in config scratch-writes atomfs-store; do
             mkdir -p "/$rootd/$d"
             mount --move "/$d" "$rootd/$d" || {
-                soci_die "Unable to mount --move /$d $rootd/$d"
+                soci_die "Unable to mount --move /$d $root/$d"
                 return 1
             }
         done
