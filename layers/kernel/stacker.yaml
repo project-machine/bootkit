@@ -2,39 +2,46 @@ config:
   prerequisites:
     - ../build-krd/stacker.yaml
 
-kernel-build:
+kernel-pkg:
   build_only: true
   from:
     type: built
     tag: build-krd
   run: |
     pkgtool install linux-image-virtual
+
+kernel-build:
+  build_only: true
+  from:
+    type: built
+    tag: kernel-pkg
+  run: |
     ver=$(cd /lib/modules && for d in */modules.dep; do echo ${d%/*}; done)
     set -- $ver
     [ $# -eq 0 ] && { echo "nothing found in /lib/modules"; exit 1; }
     [ $# -gt 1 ] && { echo "found $# things in /lib/modules"; exit 1; }
 
     d=$(mktemp -d)
-    mkdir -p "$d/boot/$ver" "$d/initrd" /export
+    mkdir -p "$d/kernel" "$d/kernel/boot" "$d/initrd" /export
 
     # create firwmare.cpio.gz, core.cpio.gz and modules.cpio.gz in $d/initrd
     build-initrd build -v -v --modules --core "$d/initrd"
 
-    chmod ugo+r "$d/initrd"/*
+    mv "$d/initrd/modules.cpio.gz" "$d/kernel/initrd-modules.cpio.gz"
 
-    echo "$ver" > "$d/initrd/version"
-    echo "$ver" > "/lib/modules/$ver/version"
-    echo "$ver" > "$d/boot/$ver/version"
-    echo "$ver" > "$d/version"
+    echo "$ver" > "$d/kernel/boot/version"
+    echo "$ver" > "$d/kernel/version"
     for f in System.map config vmlinuz; do
-      cp /boot/$f-$ver $d/boot/$ver/$f
+      mv "/boot/$f-$ver" "$d/kernel/boot/$f"
     done
 
-    tar -C "$d" -cf /export/boot.tar boot/$ver/
-    tar -C "$d" -cf /export/initrd.tar initrd/
-
     ( cd /lib/modules &&
-      mksquashfs $ver/ /export/modules.squashfs -xattrs -comp xz -keep-as-directory )
+      mksquashfs "$ver/" "$d/kernel/modules.squashfs" -xattrs -comp xz -keep-as-directory )
+
+    chmod -R 644 "$d/initrd"/* "$d/kernel"/*
+
+    tar -C "$d" -cf /export/kernel.tar kernel/
+    tar -C "$d" -cf /export/initrd.tar initrd/
     echo "$ver" > /export/version
 
     rm -Rf "$d"

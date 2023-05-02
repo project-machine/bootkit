@@ -44,47 +44,41 @@ shim-build:
 
     # enable booting the kernel+initramfs+cmdline efi image directly
     DISABLE_EBS_PROTECTION = y
-
-    # our certificate package in esl format
-    VENDOR_DB_FILE = $shimd/vendor_db.esl
     EOF
 
-    cat > sbat.csv <<EOF
-    shim.puzzleos,1,PuzzleOS,shim,15.6-202207-1,https://github.com/puzzleos
-    EOF
-
-    mkdir $shimd/certs
+    mkdir "$shimd/certs"
     for ukid in $keydir/uki-*; do
-        cp "$ukid/cert.pem" "$shimd/certs/${ukid##*/}.pem"
-        cp "$ukid/guid" "$shimd/certs/${ukid##*/}.guid"
+        cert-to-efi-sig-list -g "$ukid/guid" "$ukid/cert.pem" "$shimd/certs/${ukid##*/}.esl"
     done
+    ls -l "$shimd/certs"
 
-    # generate the vendor_db.esl file from certs
-    cd $shimd/certs
-    for i in *.pem; do
-        sha1sum $i
-        openssl x509 -text -noout -in $i
-        cert=`echo $i | sed 's/\..*//'`
-        cert-to-efi-sig-list -g $cert.guid $i $cert.esl
-    done
-    cat *.esl > $shimd/vendor_db.esl
-    ls -l *.esl $shimd/vendor_db.esl
+    cat "$shimd/certs"/*.esl > "$shimd/vendor_db.esl.uki"
+    : > "$shimd/vendor_db.esl.empty"
+    ls -l $shimd/vendor_db.esl.*
 
     # append sbat data to the upstream data/sbat.csv
     cd $shimd
-    cat sbat.csv >> data/sbat.csv && cat data/sbat.csv
+    cp data/sbat.csv data/sbat.csv.dist
+    cat >> data/sbat.csv <<EOF
+    shim.puzzleos,1,PuzzleOS,shim,15.6-202207-1,https://github.com/puzzleos
+    EOF
 
     ncpus=$(grep -c processor /proc/cpuinfo) || ncpus=1
-    make "-j${ncpus}"
+
+    for esl in $shimd/vendor_db.esl.uki $shimd/vendor_db.esl.empty; do
+      suff=${esl##*.}
+      echo === "VENDOR_DB_FILE=$esl" ===
+      make "-j${ncpus}" "VENDOR_DB_FILE=$esl"
+      cp shimx64.efi shimx64.efi.$suff
+      touch cert.S shim.c shim.h
+    done
 
     sha256sum *.efi
 
     mkdir $d/shim
-    cp $shimd/shimx64.efi $d/shim/shim-unsigned.efi
-    sbsign \
-        "--cert=$keydir/uefi-db/cert.pem" \
-        "--key=$keydir/uefi-db/privkey.pem" \
-        "--output=$d/shim/shim.efi" $d/shim/shim-unsigned.efi
+    mv $shimd/shimx64.efi.uki $d/shim/shim-uki.efi
+    mv $shimd/shimx64.efi.empty $d/shim/shim.efi
+    chmod 644 "$d/shim"/shim*
 
     mkdir /export
     tar -C "$d" -cf /export/shim.tar shim/
