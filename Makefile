@@ -19,7 +19,7 @@ LAYERS := $(shell cd $(TOP_D)/layers && \
 #   --stacker-file=layers/<layer>/stacker.yaml
 # The result is you can 'make layer-shim' and also tab-complete that.
 $(foreach d,$(LAYERS),layer-$(d)):
-	@echo $(STACKER_BUILD) "--stacker-file=$(@:layer-=layers/)*/stacker.yaml"
+	$(STACKER_BUILD) "--stacker-file=$(subst layer-,layers/,$@)/stacker.yaml"
 
 .PHONY: publish
 publish:
