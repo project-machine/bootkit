@@ -16,10 +16,10 @@ STACKER_D ?= $(BUILD_D)/stacker
 ROOTS_D ?= $(BUILD_D)/roots
 OCI_D ?= $(BUILD_D)/oci
 
-# STACKER_COMMON_OPTS = --debug
+STACKER_COMMON_OPTS = --debug
 # STACKER_BUILD_ARGS = --shell-fail
 STACKER_OPTS = --stacker-dir=$(STACKER_D) --roots-dir=$(ROOTS_D) --oci-dir=$(OCI_D) $(STACKER_COMMON_OPTS)
-STACKER_BUILD = stacker $(STACKER_OPTS) build $(STACKER_BUILD_ARGS) --layer-type=squashfs --layer-type=tar --layer-type=squashfs $(STACKER_SUBS)
+STACKER_BUILD = stacker $(STACKER_OPTS) build $(STACKER_BUILD_ARGS) --layer-type=squashfs --layer-type=tar $(STACKER_SUBS)
 STACKER_RBUILD = stacker $(STACKER_OPTS) recursive-build $(STACKER_BUILD_ARGS) --search-dir=layers/ --layer-type=squashfs --layer-type=tar $(STACKER_SUBS)
 STACKER_PUBLISH = stacker $(STACKER_OPTS) publish \
 	--search-dir=layers/ --layer-type=squashfs $(STACKER_SUBS) \

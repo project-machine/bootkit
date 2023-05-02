@@ -1,0 +1,168 @@
+#!/bin/bash
+# shellcheck disable=SC2015,SC2039,SC2166,SC2162
+
+VERBOSITY=0
+TEMP_D=""
+
+stderr() { echo "$@" 1>&2; }
+fail() { local r=$?;  [ $r -eq 0 ] && r=1; failrc "$r" "$@"; }
+failrc() { local r=$1; shift; [ $# -eq 0 ] || stderr "$@"; exit "$r"; }
+
+Usage() {
+    local subcmd=""
+    case "$SUBCMD" in
+        virt-fw-vars|main) "${SUBCMDN}_Usage";;
+        "")
+            stderr "SUBCMD not set"
+            main_Usage;;
+    esac
+}
+
+bad_Usage() {
+    Usage 1>&2
+    [ $# -eq 0 ] || stderr "$@"
+    return 1
+}
+
+cleanup() {
+    [ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+}
+
+debug() {
+    local level=${1}; shift;
+    [ "${level}" -gt "${VERBOSITY}" ] && return
+    stderr "${@}"
+}
+
+assert_tmpdir() {
+    [ -n "$TEMP_D" ] && return 0
+    TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
+        fail "failed to make tempdir"
+}
+
+# get_guid_cert(dir)
+# for the keys-style dir in <dir>, write the guid and path to the certificate.
+get_guid_cert() {
+    local kd="$1" guid="" guidf="" certf=""
+    [ "${kd%/}" = "$kd" ] || kd=${kd%/}
+    certf="$kd/cert.pem"
+    guidf="$kd/guid"
+    [ -d "$kd" ] || {
+        stderr "no dir '$kd'" 1>&2
+        return 1
+    }
+    [ -f "$certf" ] || {
+        stderr "no cert file in $certf" 1>&2
+        return 1
+    }
+    [ -f "$guidf" ] || {
+        stderr "no guid file in $guidf" 1>&2
+        return 1
+    }
+    # cannot check error here because guid files do not have trailing newline
+    # and 'read' will return non-zero.
+    read guid < "$guidf" || :
+    local h4="[0-9a-f][0-9a-f][0-9a-f][0-9a-f]"
+    # shellcheck disable=SC2254
+    case "$guid" in
+        $h4$h4-$h4-$h4-$h4-$h4$h4$h4) :;;
+        *) stderr "read '$guid' from $guidf - did not match template"
+            return 1;;
+
+    esac
+    _RET_guid="$guid"
+    _RET_cert="$certf"
+}
+
+virt_fw_vars_Usage() {
+    cat <<EOF
+${0##*/} [global-options] virt-fw-vars [options] <<ARGUMENTS>>
+
+    'virt-fw-vars' wraps a call to 'virt-fw-vars' subcommand but
+    handles the extra command line options
+
+      --keydir-<option> for <option> names that take 2 params
+         GUID and FILE
+
+    Instead of
+      guid=$(cat keydir/uefi-pk/guid)
+      --set-pk $guid keydir/uefi-pk/cert.pem
+
+    It allows:
+
+      --keydir-set-pk=keydir/uefi-pk
+
+    Other than that it is just a passthrough.
+EOF
+}
+
+virt_fw_vars() {
+    local cur="" key="" val="" pt=""
+    pt=( )
+
+    while [ $# -ne 0 ]; do
+        cur="$1"
+        case "$cur" in
+            -h|--help) Usage "$subcmd"; exit 0;;
+            --keydir-*=*)
+                key=${cur%%=*}
+                key=--${key#--keydir-}
+                val=${cur#*=}
+                get_guid_cert "$val" || return 1
+                pt=( "${pt[@]}" "$key" "$_RET_guid" "$_RET_cert" )
+                ;;
+            --keydir-*)
+                key=--${cur#--keydir-}
+                val="$2"
+                shift
+                get_guid_cert "$val" || return 1
+                pt=( "${pt[@]}" "$key" "$_RET_guid" "$_RET_cert" )
+                ;;
+            *) pt[${#pt[@]}]="$cur";;
+        esac
+        shift
+    done
+
+    debug 0 "virt-fw-vars" "${pt[@]}"
+    virt-fw-vars "${pt[@]}"
+}
+
+main_Usage() {
+    cat <<EOF
+Usage: ${0##*/} [global-options] subcmd [ options ] <<ARGUMENTS>>
+
+   global-options:
+      -h | --help         show usage
+      -v | --verbose      increase verbosity
+
+   subcmds:
+
+     virt-fw-vars
+EOF
+}
+
+main() {
+    SUBCMD="main"
+    SUBCMDN="$SUBCMD"
+    while [ $# -ne 0 ]; do
+        echo "n='$1'"
+        case "$1" in
+            -h|--help) Usage; exit 0;;
+            -v|--verbose) VERBOSITY=$((VERBOSITY+1));;
+            virt-fw-vars)
+                SUBCMD=$1
+                SUBCMDN=$(echo "$SUBCMD" |
+                    tr '[:upper:]' '[:lower:]' | tr '-' '_')
+                shift
+                echo "SUBCMDN=$SUBCMDN"
+                "$SUBCMDN" "$@"
+                return;;
+            *) break
+        esac
+    done
+    bad_Usage "unknown sub-command '$1'"
+    return
+}
+
+main "$@"
+# vi: ts=4 expandtab

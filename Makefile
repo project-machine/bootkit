@@ -7,6 +7,9 @@ include common.mk
 build:
 	$(STACKER_RBUILD)
 
+custom:
+	$(STACKER_BUILD) --stacker-file=layers/custom/custom.yaml
+
 .PHONY: pkg-build
 pkg-build:
 	cd pkg && $(STACKER_BUILD)

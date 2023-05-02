@@ -1,0 +1,89 @@
+config:
+  prerequisites:
+    - ../bootkit/stacker.yaml
+
+build-customize:
+  build_only: true
+  from:
+    type: built
+    tag: minbase
+  run: |
+    pkgtool install binutils python3 python3-pip
+    pip install virt-firmware
+
+customized:
+  build_only: true
+  from:
+    type: built
+    tag: build-customize
+  import:
+    - path: ${{KEYSET_D}}/
+      dest: /import/keys/
+    - path: ../../tools/custbk
+    - path: "stacker://bootkit-assemble/export/bootkit.tar"
+  run: |
+    d=$(mktemp -d)
+    trap "rm -Rf $d" EXIT
+
+    cp /stacker/custbk /usr/local/bin/custbk
+    chmod 755 /usr/local/bin/custbk
+
+    workdir=$d/workd
+    bkdir="$d/bootkit"
+    outdir="/export"
+
+    tar -C "$d" -xf /stacker/bootkit.tar
+
+    [ -d "$bkdir" ] ||
+        { echo "no bootkit created by bootkit.tar"; exit 1; }
+
+    keydir=$(echo /import/keys/*)
+    [ -d "$keydir" ] ||
+        { echo "did not find keydir in /import/keys/*"; exit 1; }
+
+    mkdir "$outdir" "$workdir"
+
+    ### ovmf
+    custbk virt-fw-vars \
+      "--keydir-set-pk=$keydir/uefi-pk/" \
+      "--keydir-add-kek=$keydir/uefi-kek/" \
+      "--keydir-add-db=$keydir/uefi-db/" \
+      "--input=$bkdir/ovmf/ovmf-vars.fd" \
+      "--output=$outdir/ovmf-vars.fd" \
+      "--secure-boot" \
+      "--no-microsoft" \
+      "$@"
+
+    ### shim
+    custbk build-esl "$workdir/db.esl" \
+        "keydir:$keydir/uki-limited" \
+        "keydir:$keydir/uki-tpm" \
+        "keydir:$keydir/uki-production"
+    custbk shim-set-db "$outdir/shim.efi" "$bkdir/shim.efi" "$workdir/db.esl"
+    sbsign "--cert=$keydir/uefi-db/cert.pem" \
+        "--key=$keydir/uefi-db/privkey.pem" \
+        "$outdir/shim.efi"
+
+    ### kernel
+    ixdir="$workdir/initrd-extra"
+    mkdir "$ixdir"
+    cp "$keydir/manifest-ca/cert.pem" "$ixdir/manifestCA.pem"
+    cp -r "$keydir/pcr7data" "$ixdir/pcr7data"
+    custbk initrd-join \
+        "--microcode=$bkdir/initrd/firmware.cpio.gz" \
+        "$workdir/initrd.img"
+        "$bkdir/initrd/core.cpio.gz" \
+        "$bkdir/initrd/modules.cpio.gz" \
+        "$bkdir/initrd/mos.cpio.gz" \
+        "dir:$ixdir"
+    rm -Rf "$ixdir"
+
+    custbk smoosh \
+        --cmdline="" \
+        "$bkdir/stubby.efi" \
+        "$outdir/kernel.efi" \
+        "$workdir/initrd.img"
+    sbsign \
+        "--cert=$keydir/uki-production/cert.pem" \
+        "--key=$keydir/uki-production/privkey.pem" \
+        "$outdir/kernel.efi"
