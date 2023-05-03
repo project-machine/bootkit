@@ -21,16 +21,11 @@ shim-build:
   from:
     type: built
     tag: shim-build-env
-  import:
-    - path: ${{KEYSET_D}}/
-      dest: /import/keys/
   run: |
     d=$(mktemp -d)
     trap "rm -Rf $d" EXIT
 
     cd $d
-    keydir=$(echo /import/keys/*)
-    [ -d "$keydir" ]
 
     shimd=$(echo /build/shim-*)
     [ -d "$shimd" ] || { echo "no single shim dir in /build"; exit 1; }
@@ -46,16 +41,6 @@ shim-build:
     DISABLE_EBS_PROTECTION = y
     EOF
 
-    mkdir "$shimd/certs"
-    for ukid in $keydir/uki-*; do
-        cert-to-efi-sig-list -g "$ukid/guid" "$ukid/cert.pem" "$shimd/certs/${ukid##*/}.esl"
-    done
-    ls -l "$shimd/certs"
-
-    cat "$shimd/certs"/*.esl > "$shimd/vendor_db.esl.uki"
-    : > "$shimd/vendor_db.esl.empty"
-    ls -l $shimd/vendor_db.esl.*
-
     # append sbat data to the upstream data/sbat.csv
     cd $shimd
     cp data/sbat.csv data/sbat.csv.dist
@@ -65,20 +50,16 @@ shim-build:
 
     ncpus=$(grep -c processor /proc/cpuinfo) || ncpus=1
 
-    for esl in $shimd/vendor_db.esl.uki $shimd/vendor_db.esl.empty; do
-      suff=${esl##*.}
-      echo === "VENDOR_DB_FILE=$esl" ===
-      make "-j${ncpus}" "VENDOR_DB_FILE=$esl"
-      cp shimx64.efi shimx64.efi.$suff
-      touch cert.S shim.c shim.h
-    done
+    : > "$shimd/vendor_db.esl"
+    make "-j${ncpus}" "VENDOR_DB_FILE=$shimd/vendor_db.esl"
 
     sha256sum *.efi
 
     mkdir $d/shim
-    mv $shimd/shimx64.efi.uki $d/shim/shim-uki.efi
-    mv $shimd/shimx64.efi.empty $d/shim/shim.efi
-    chmod 644 "$d/shim"/shim*
+    for f in *x64.efi; do
+       cp -v "$f" "$d/shim/${f%x64.efi}.efi"
+    done
+    chmod 644 "$d/shim"/*
 
     mkdir /export
     tar -C "$d" -cf /export/shim.tar shim/
