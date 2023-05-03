@@ -125,7 +125,7 @@ mount_boot_rootfs() {
         return 1
     fi
 
-    mkdir -p $rootfd/boot/efi
+    mkdir -p $rootd/boot/efi
     mount --move /boot/efi $rootd/boot/efi
 }
 
