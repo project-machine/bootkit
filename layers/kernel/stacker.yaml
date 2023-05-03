@@ -38,7 +38,7 @@ kernel-build:
     ( cd /lib/modules &&
       mksquashfs "$ver/" "$d/kernel/modules.squashfs" -xattrs -comp xz -keep-as-directory )
 
-    chmod -R 644 "$d/initrd"/* "$d/kernel"/*
+    chmod -R u=rwX,go=rX "$d/initrd"/* "$d/kernel"/*
 
     tar -C "$d" -cf /export/kernel.tar kernel/
     tar -C "$d" -cf /export/initrd.tar initrd/
