@@ -216,10 +216,13 @@ build_esl() {
 		shift;
 	done
     [ $# -gt 2 ] || { bad_Usage "Must provide output and at least one pem"; return; }
+
+    assert_tmpdir
+    trap cleanup EXIT
+
     local output="$1"
     shift
 
-    assert_tmpdir
     local curout="${TEMP_D}/cur.esl" sigl="${TEMP_D}/sigl"
     local pemin="" pem="" guid=""
     for pemin in "$@"; do
@@ -255,6 +258,24 @@ ${0##*/} [global-options] shim-set-db [options] output-shim.efi input-shim.efi d
 EOF
 }
 
+
+shim_head() {
+    local vdbsize="$1" dbxsize="${2:-0}" vdboff="${3:-16}" dbxoff=""
+    dbxoff=$((vdboff+vdbsize))
+    command -v python3 >/dev/null 2>&1 || {
+        stderr "shim_head needs python3"
+        return 1
+    }
+    python3 -c '
+from struct import pack
+import sys
+header = pack("<IIII", *[int(i) for i in sys.argv[1:]])
+sys.stdout.buffer.write(header)
+' \
+        "$vdbsize" "$dbxsize" "$vdboff" "$dbxoff"
+
+}
+
 shim_set_db() {
     local sopts="ho:v"
     local lopts="help,verbose"
@@ -276,8 +297,37 @@ shim_set_db() {
     [ -f "$input" ] || { stderr "input '$input' is not a file"; return 1; }
     [ -f "$dbesl" ] || { stderr "db.esl '$dbesl' is not a file"; return 1; }
 
-    debug 0 "FIXME: actually implement this please"
-    cp "$input" "$output"
+    command -v objcopy >/dev/null || {
+        stderr "inserting shim db requires objcopy in PATH"
+        return 1
+    }
+
+    assert_tmpdir
+    trap cleanup EXIT
+
+    local dbsize="" dbsection="${TEMP_D}/dbobj" out="" rc=""
+    dbsize=$(stat --format="%s" "$dbesl") ||
+        fail "failed reading size of $dbesl"
+    debug 1 "$dbesl is ${dbsize}B"
+
+    shim_head "$dbsize" > "$dbsection" ||
+        fail "failed getting shimobj header for $dbsize"
+    cat "$dbesl" >> "$dbsection" ||
+        fail "failed writing to $dbsection"
+
+    # .vendor_cert
+    set -- objcopy "--remove-section=.vendor_cert" \
+        "--add-section=.vendor_cert=$dbsection" \
+        "--change-section-vma=.vendor_cert=0xb4000" \
+        "$input" "$output"
+    out=$("$@" 2>&1)
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+        stderr "objcopy failed [$rc]: $*"
+        stderr "$out"
+        return 1
+    fi
+    debug 0 "updated shim-db in $output with $dbesl"
 }
 
 initrd_join_Usage() {
@@ -480,6 +530,7 @@ main() {
                 return
                 ;;
         esac
+        shift
     done
     bad_Usage "unknown sub-command '$1'"
     return
