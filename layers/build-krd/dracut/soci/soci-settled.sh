@@ -189,6 +189,10 @@ soci_udev_settled() {
         chmod 700 /factory/secure
         cp /manifestCA.pem /factory/secure/
 
+        # cannot move-mount out of a shared parent mount, so make sure / is
+        # private before we try a move-mount
+        mount --make-private /
+
         if [ "$name" = "mosboot" ]; then
             mount_boot_rootfs
             exit 1
@@ -239,8 +243,6 @@ soci_udev_settled() {
 
 
         # move the mounts under the new root so switch_root does not delete contents
-        # cannot move-mount out of a shared parent mount, so make sure / is private
-        mount --make-private /
         for d in config scratch-writes atomfs-store; do
             mkdir -p "/$rootd/$d"
             mount --move "/$d" "$rootd/$d" || {
