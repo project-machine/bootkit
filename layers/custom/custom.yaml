@@ -66,8 +66,8 @@ customized:
     ### shim
     custbk build-esl "$workdir/db.esl" \
         "keydir:$keydir/uki-limited" \
-        "keydir:$keydir/uki-tpm" \
-        "keydir:$keydir/uki-production"
+        "keydir:$keydir/uki-production" \
+        "keydir:$keydir/uki-tpm"
     custbk shim-set-db "$outdir/shim.efi" "$bkdir/shim/shim.efi" "$workdir/db.esl"
     sbsign "--cert=$keydir/uefi-db/cert.pem" \
         "--key=$keydir/uefi-db/privkey.pem" \
