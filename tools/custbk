@@ -3,19 +3,28 @@
 
 VERBOSITY=0
 TEMP_D=""
+h4="[0-9a-f][0-9a-f][0-9a-f][0-9a-f]"
+GUID_FMT="$h4$h4-$h4-$h4-$h4-$h4$h4$h4"
+SUBCMDS="build-esl initrd-join shim-set-db smoosh virt-fw-vars"
 
 stderr() { echo "$@" 1>&2; }
 fail() { local r=$?;  [ $r -eq 0 ] && r=1; failrc "$r" "$@"; }
 failrc() { local r=$1; shift; [ $# -eq 0 ] || stderr "$@"; exit "$r"; }
 
+
+is_subcmd() {
+    local cand=" $1 " actual=" $SUBCMDS "
+    [ "${actual#*"$cand"}" != "$actual" ]
+}
+
 Usage() {
-    local subcmd=""
-    case "$SUBCMD" in
-        virt-fw-vars|main) "${SUBCMDN}_Usage";;
-        "")
-            stderr "SUBCMD not set"
-            main_Usage;;
-    esac
+    [ -n "$SUBCMD" ] || {
+        stderr "SUBCMD not set";
+        main_Usage
+        return
+    }
+    is_subcmd "$SUBCMD" || fail "SUBCMD '$SUBCMD' is not a subcommand"
+    "${SUBCMDN}_Usage"
 }
 
 bad_Usage() {
@@ -62,23 +71,69 @@ get_guid_cert() {
     # cannot check error here because guid files do not have trailing newline
     # and 'read' will return non-zero.
     read guid < "$guidf" || :
-    local h4="[0-9a-f][0-9a-f][0-9a-f][0-9a-f]"
-    # shellcheck disable=SC2254
-    case "$guid" in
-        $h4$h4-$h4-$h4-$h4-$h4$h4$h4) :;;
-        *) stderr "read '$guid' from $guidf - did not match template"
-            return 1;;
+    is_guid "$guid" || {
+        stderr "read '$guid' from $guidf - did not match guid template"
+        return 1
+    }
 
-    esac
     _RET_guid="$guid"
     _RET_cert="$certf"
+}
+
+is_guid() {
+    local guid="$1"
+    # shellcheck disable=SC2254
+    case "$guid" in
+        $GUID_FMT) return 0;;
+    esac
+    return 1
+}
+
+# xgz [--uncompress] file
+# pick a good gzip and either compress or uncompress to stdout.
+xgz() {
+    local gz="gzip" file="" mode=""
+    if [ "$1" = "--uncompress" ]; then
+        mode="$1"
+        shift
+    fi
+    file="$1"
+    if [ "$mode" = "--uncompress" ] &&
+       [ "$file" != "-" -a -f "$file" ] && [ "${file%.gz}" = "$file" ]; then
+        cat "$file"
+        return
+    fi
+    if command -v pigz >/dev/null; then
+        gz="pigz"
+    fi
+    "$gz" ${mode:+"$mode"} --to-stdout ${file:+"$file"}
+}
+
+xgzcat_cpios() {
+    local f=""
+    for f in "$@"; do
+        case "$f" in
+            dir:*)
+                dir2cpio "${f#dir:}" || {
+                    stderr "failed creating cpio of ${f#dir:}"
+                    return 1
+                }
+                ;;
+            *)
+                xgz --uncompress "$f" || {
+                    stderr "failed xgz of $f: $?"
+                    return 1
+                }
+                ;;
+        esac
+    done
 }
 
 virt_fw_vars_Usage() {
     cat <<EOF
 ${0##*/} [global-options] virt-fw-vars [options] <<ARGUMENTS>>
 
-    'virt-fw-vars' wraps a call to 'virt-fw-vars' subcommand but
+    '$0 virt-fw-vars' wraps a call to 'virt-fw-vars' subcommand but
     handles the extra command line options
 
       --keydir-<option> for <option> names that take 2 params
@@ -103,7 +158,7 @@ virt_fw_vars() {
     while [ $# -ne 0 ]; do
         cur="$1"
         case "$cur" in
-            -h|--help) Usage "$subcmd"; exit 0;;
+            -h|--help) Usage "$SUBCMD"; exit 0;;
             --keydir-*=*)
                 key=${cur%%=*}
                 key=--${key#--keydir-}
@@ -127,6 +182,271 @@ virt_fw_vars() {
     virt-fw-vars "${pt[@]}"
 }
 
+build_esl_Usage() {
+    cat <<EOF
+${0##*/} [global-options] build-esl [options] output pem [...]
+
+    pem can be of the form:
+
+      - keydir:path/to/dir
+            dir should have a 'cert.pem' and 'guid' in it.
+
+      - xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:path/to/pem
+            path/to/pem is a pem file. xxxx... is a guid.
+
+      - path/to/pem
+            no guid, just pem.
+
+EOF
+}
+
+build_esl() {
+    local sopts="ho:v"
+    local lopts="help,verbose"
+    local o=""
+    o=$(getopt "--name=${0##*/}" "--options=$sopts" "--long=$lopts" -- "$@") &&
+        eval set -- "$o" || { bad_Usage; return; }
+
+	while [ $# -ne 0 ]; do
+		case "$1" in
+			-h|--help) Usage ; exit 0;;
+			-v|--verbose) VERBOSITY=$((VERBOSITY+1));;
+			--) shift; break;;
+		esac
+		shift;
+	done
+    [ $# -gt 2 ] || { bad_Usage "Must provide output and at least one pem"; return; }
+    local output="$1"
+    shift
+
+    assert_tmpdir
+    local curout="${TEMP_D}/cur.esl" sigl="${TEMP_D}/sigl"
+    local pemin="" pem="" guid=""
+    for pemin in "$@"; do
+        case "$pemin" in
+            keydir:*)
+                get_guid_cert "${pemin#keydir:}" || return
+                pem="$_RET_cert"
+                guid="$_RET_guid"
+                ;;
+            $GUID_FMT:*)
+                guid=${pemin%%:*}
+                pem=${pemin#*:}
+                ;;
+            *) guid=""
+               pem="$pemin"
+               ;;
+        esac
+        rm -f "$curout"
+        cert-to-efi-sig-list ${guid:+-g "$guid"} "$pem" "$curout" ||
+            fail "failed $?: cert-to-efi-sig-list ${guid:+-g $guid} $pem $curout"
+        debug 1 "added ${guid:+($guid)} $pem"
+        cat "$curout" >> "$sigl"
+    done
+    mv "$sigl" "$output" || fail "failed to move $sigl to $output"
+}
+
+shim_set_db_Usage() {
+    cat <<EOF
+${0##*/} [global-options] shim-set-db [options] output-shim.efi input-shim.efi db.esl
+
+    Modify the shim in input-shim by populating its vendor_db
+    and write the output to output-shim.efi
+EOF
+}
+
+shim_set_db() {
+    local sopts="ho:v"
+    local lopts="help,verbose"
+    local o=""
+    o=$(getopt "--name=${0##*/}" "--options=$sopts" "--long=$lopts" -- "$@") &&
+        eval set -- "$o" || { bad_Usage; return; }
+
+	while [ $# -ne 0 ]; do
+		case "$1" in
+			-h|--help) Usage ; exit 0;;
+			-v|--verbose) VERBOSITY=$((VERBOSITY+1));;
+			--) shift; break;;
+		esac
+		shift;
+	done
+    [ $# -gt 2 ] || { bad_Usage "Must provide output and at least one pem"; return; }
+    local output="$1" input="$2" dbesl="$3"
+    shift 3
+    [ -f "$input" ] || { stderr "input '$input' is not a file"; return 1; }
+    [ -f "$dbesl" ] || { stderr "db.esl '$dbesl' is not a file"; return 1; }
+
+    debug 0 "FIXME: actually implement this please"
+    cp "$input" "$output"
+}
+
+initrd_join_Usage() {
+    cat <<EOF
+${0##*/} [global-options] initrd-join [options] output pem [...]
+
+    Join a bunch of cpios into an initramfs.
+
+    options:
+
+      -v | --verbose
+      -h | --help
+      --microcode CPIO  - CPIO is microcode [it will be placed first
+                          and not compressed]
+EOF
+}
+
+dir2cpio() {
+    local dir="$1"
+    (
+    set -o pipefail
+    cd "$dir" || { stderr "failed cd to $dir"; exit 1; }
+    find * | cpio --create --owner=+0:+0 -H newc --quiet
+    )
+}
+
+initrd_join() {
+    local sopts="hm:v"
+    local lopts="help,microcode:,verbose"
+    local o="" cur="" next=""
+    o=$(getopt "--name=${0##*/}" "--options=$sopts" "--long=$lopts" -- "$@") &&
+        eval set -- "$o" || { bad_Usage; return; }
+
+    local microcode="" output=""
+	while [ $# -ne 0 ]; do
+        cur="$1"
+        next="$2"
+		case "$cur" in
+			-h|--help) Usage ; exit 0;;
+			-m|--microcode)
+                [ -z "$microcode" ] || fail "microcode given more than once"
+                microcode="$next"; shift;;
+			-v|--verbose) VERBOSITY=$((VERBOSITY+1));;
+			--) shift; break;;
+		esac
+		shift;
+	done
+    [ $# -gt 2 ] || { bad_Usage "Must provide output and at least one pem"; return; }
+    output="$1"
+    shift
+
+    local rcs=""
+
+    if [ -n "$microcode" ]; then
+        xgzcat_cpios "$microcode" > "$output" || {
+            stderr "failed to write microcode '$microcode' to $output"
+            return 1
+        }
+    fi
+
+    xgzcat_cpios "$@" | xgz >> "$output"
+    rcs=( "${PIPESTATUS[@]}")
+    [ "${rcs[*]}" = "0 0" ] && return 0
+    [ "${rcs[1]}" -eq 0 ] || {
+        stderr "compression or writing to $output failed [${rcs[1]}]";
+    }
+    return 1
+}
+
+sbat_content() {
+    cat <<EOF
+sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+stubby.puzzleos,2,PuzzleOS,stubby,1,https://github.com/puzzleos/stubby
+linux.puzzleos,1,PuzzleOS,linux,1,NOURL
+EOF
+}
+
+smoosh_Usage() {
+    cat <<EOF
+${0##*/} [global-options] smoosh [options] output.efi stubby.efi kernel initrd
+
+    Using the stubby.efi, write a UKI to output.efi
+    that includes kernel (vmlinuz) and initrd.
+
+    options:
+     -c | --cmdline CMDLINE   set the cmdline (default is "")
+EOF
+}
+
+smoosh() {
+    local o="" sopts="hcv"
+    local lopts="help,cmdline:,verbose"
+    o=$(getopt "--name=${0##*/}" "--options=$sopts" "--long=$lopts" -- "$@") &&
+        eval set -- "$o" || { bad_Usage; return; }
+
+    local cur="" next="" cmdline=""
+    while [ $# -ne 0 ]; do
+        cur="$1"; next="$2";
+        case "$cur" in
+            -h|--help) Usage ; exit 0;;
+            -v|--verbose) VERBOSITY=$((VERBOSITY+1));;
+            -c|--cmdline) cmdline="$next"; shift;;
+            --) shift; break;;
+        esac
+        shift;
+    done
+
+    command -v objcopy >/dev/null || {
+        stderr "smoosh'ing requires objcopy in PATH"
+        return 1
+    }
+
+    [ $# -eq 4 ] || {
+        bad_Usage "got $# args, expected 4"
+        return 1
+    }
+
+    local output="$1" stubefi="$2" kernel="$3" initrd="$4"
+    [ -f "$stubefi" ] || {
+        stderr "provided stubby '$stubefi' is not a file"
+        return 1
+    }
+
+    [ -f "$kernel" ] || {
+        stderr "provided kernel '$kernel' is not a file"
+        return 1
+    }
+
+    [ -f "$initrd" ] || {
+        stderr "provided initrd '$initrd' is not a file"
+        return 1
+    }
+
+    assert_tmpdir
+    trap cleanup EXIT
+
+    local cmdlinef="${TEMP_D}/cmdline" out="" rc="" sbatf="${TEMP_D}/sbat.csv"
+    # intentionally no trailing newline.
+    printf "%s" "$cmdline" > "$cmdlinef" || {
+        stderr "Failed to write cmdline '$cmdline' to file"
+        return 1
+    }
+
+    sbat_content > "$sbatf" || {
+        stderr "Failed to write sbat content to tmp file";
+        return 1;
+    }
+
+    out=$(
+    set -x;
+    objcopy \
+        "--add-section=.cmdline=${cmdlinef}" \
+        "--change-section-vma=.cmdline=0x30000" \
+        "--change-section-vma=.sbat=0x50000" \
+        "--add-section=.sbat=$sbatf" \
+        "--set-section-alignment=.sbat=512" \
+        "--add-section=.linux=$kernel" \
+        "--change-section-vma=.linux=0x2000000" \
+        "--add-section=.initrd=$initrd" \
+        "--change-section-vma=.initrd=0x3000000" \
+        "$stubefi" "$output"
+    ) 2>&1
+    rc=$?
+    [ $rc -eq 0 ] && { debug 0 "wrote $output"; return 0; }
+    stderr "failed to create smashed kernel [$rc]"
+    stderr "$out"
+    return $rc
+}
+
 main_Usage() {
     cat <<EOF
 Usage: ${0##*/} [global-options] subcmd [ options ] <<ARGUMENTS>>
@@ -136,28 +456,29 @@ Usage: ${0##*/} [global-options] subcmd [ options ] <<ARGUMENTS>>
       -v | --verbose      increase verbosity
 
    subcmds:
-
-     virt-fw-vars
 EOF
+    local n
+    for n in $SUBCMDS; do
+        printf "     %s" "$n"
+    done
 }
 
 main() {
     SUBCMD="main"
     SUBCMDN="$SUBCMD"
     while [ $# -ne 0 ]; do
-        echo "n='$1'"
         case "$1" in
             -h|--help) Usage; exit 0;;
             -v|--verbose) VERBOSITY=$((VERBOSITY+1));;
-            virt-fw-vars)
-                SUBCMD=$1
+            *)
+                is_subcmd "$1" || break
+                SUBCMD="$1"
                 SUBCMDN=$(echo "$SUBCMD" |
                     tr '[:upper:]' '[:lower:]' | tr '-' '_')
                 shift
-                echo "SUBCMDN=$SUBCMDN"
                 "$SUBCMDN" "$@"
-                return;;
-            *) break
+                return
+                ;;
         esac
     done
     bad_Usage "unknown sub-command '$1'"
