@@ -195,7 +195,6 @@ soci_udev_settled() {
 
         if [ "$name" = "mosboot" ]; then
             mount_boot_rootfs
-            exit 1
         else
             # switch_root pivots into /sysroot and will delete anything on the initrd's rootfs; use a tmpfs mount to avoid
             for d in config scratch-writes atomfs-store; do
