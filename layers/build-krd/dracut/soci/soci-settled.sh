@@ -236,6 +236,9 @@ soci_udev_settled() {
                ;;
             *)
                soci_log_run mosctl initrd-setup
+               mkdir -p /sysroot/factory
+               soci_log_run mount --move /factory /sysroot/factory
+               chmod 700 /factory /sysroot/factory
                soci_info "TPM is ready for general boot"
                ;;
         esac
