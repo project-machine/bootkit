@@ -207,14 +207,14 @@ build_esl() {
     o=$(getopt "--name=${0##*/}" "--options=$sopts" "--long=$lopts" -- "$@") &&
         eval set -- "$o" || { bad_Usage; return; }
 
-	while [ $# -ne 0 ]; do
-		case "$1" in
-			-h|--help) Usage ; exit 0;;
-			-v|--verbose) VERBOSITY=$((VERBOSITY+1));;
-			--) shift; break;;
-		esac
-		shift;
-	done
+    while [ $# -ne 0 ]; do
+        case "$1" in
+            -h|--help) Usage ; exit 0;;
+            -v|--verbose) VERBOSITY=$((VERBOSITY+1));;
+            --) shift; break;;
+        esac
+        shift;
+    done
     [ $# -gt 2 ] || { bad_Usage "Must provide output and at least one pem"; return; }
 
     assert_tmpdir
@@ -283,14 +283,14 @@ shim_set_db() {
     o=$(getopt "--name=${0##*/}" "--options=$sopts" "--long=$lopts" -- "$@") &&
         eval set -- "$o" || { bad_Usage; return; }
 
-	while [ $# -ne 0 ]; do
-		case "$1" in
-			-h|--help) Usage ; exit 0;;
-			-v|--verbose) VERBOSITY=$((VERBOSITY+1));;
-			--) shift; break;;
-		esac
-		shift;
-	done
+    while [ $# -ne 0 ]; do
+        case "$1" in
+            -h|--help) Usage ; exit 0;;
+            -v|--verbose) VERBOSITY=$((VERBOSITY+1));;
+            --) shift; break;;
+        esac
+        shift;
+    done
     [ $# -gt 2 ] || { bad_Usage "Must provide output and at least one pem"; return; }
     local output="$1" input="$2" dbesl="$3"
     shift 3
@@ -362,19 +362,19 @@ initrd_join() {
         eval set -- "$o" || { bad_Usage; return; }
 
     local microcode="" output=""
-	while [ $# -ne 0 ]; do
+    while [ $# -ne 0 ]; do
         cur="$1"
         next="$2"
-		case "$cur" in
-			-h|--help) Usage ; exit 0;;
-			-m|--microcode)
+        case "$cur" in
+            -h|--help) Usage ; exit 0;;
+            -m|--microcode)
                 [ -z "$microcode" ] || fail "microcode given more than once"
                 microcode="$next"; shift;;
-			-v|--verbose) VERBOSITY=$((VERBOSITY+1));;
-			--) shift; break;;
-		esac
-		shift;
-	done
+            -v|--verbose) VERBOSITY=$((VERBOSITY+1));;
+            --) shift; break;;
+        esac
+        shift;
+    done
     [ $# -gt 2 ] || { bad_Usage "Must provide output and at least one pem"; return; }
     output="$1"
     shift
@@ -481,8 +481,8 @@ smoosh() {
     objcopy \
         "--add-section=.cmdline=${cmdlinef}" \
         "--change-section-vma=.cmdline=0x30000" \
-        "--change-section-vma=.sbat=0x50000" \
         "--add-section=.sbat=$sbatf" \
+        "--change-section-vma=.sbat=0x50000" \
         "--set-section-alignment=.sbat=512" \
         "--add-section=.linux=$kernel" \
         "--change-section-vma=.linux=0x2000000" \
