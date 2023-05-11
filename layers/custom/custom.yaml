@@ -1,6 +1,6 @@
 config:
   prerequisites:
-    - ../bootkit/stacker.yaml
+    - ../minbase/stacker.yaml
 
 build-customize:
   build_only: true
@@ -10,6 +10,12 @@ build-customize:
   run: |
     pkgtool install binutils cpio efitools pigz python3 python3-pip
     pip install virt-firmware
+
+custom-bootkit-input:
+  build_only: true
+  from:
+    type: docker
+    url: ${{CUSTOM_BOOTKIT_INPUT:oci:${{STACKER_OCI_DIR}}:bootkit}}
 
 ## bootkit artifacts have no key data in them and are not signed.
 ## customized uses bootkit artifacts and key access to create
@@ -25,10 +31,10 @@ customized:
     type: built
     tag: build-customize
   import:
+    - path: ../../tools/custbk
     - path: ${{KEYSET_D}}/
       dest: /import/keys/
-    - path: ../../tools/custbk
-    - path: "stacker://bootkit-assemble/export/bootkit.tar"
+    - path: stacker://custom-bootkit-input/bootkit
   run: |
     d=$(mktemp -d)
     trap "rm -Rf $d" EXIT
@@ -37,13 +43,13 @@ customized:
     chmod 755 /usr/local/bin/custbk
 
     workdir=$d/workd
-    bkdir="$d/bootkit"
+    bkdir="/stacker/bootkit"
     outdir="$d/customized"
 
-    tar -C "$d" -xf /stacker/bootkit.tar
-
     [ -d "$bkdir" ] ||
-        { echo "no bootkit created by bootkit.tar"; exit 1; }
+        { echo "$bkdir is not a directory"; exit 1; }
+
+    find $bkdir ! -type d | xargs ls -altr
 
     keydir=$(echo /import/keys/*)
     [ -d "$keydir" ] ||
