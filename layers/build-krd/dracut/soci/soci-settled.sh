@@ -185,9 +185,9 @@ soci_udev_settled() {
         fi
 
         [ "$SOCI_DEBUG" = "true" ] && debug="--debug"
-        mkdir -p /factory/secure
-        chmod 700 /factory/secure
-        cp /manifestCA.pem /factory/secure/
+        mkdir -p /priv/factory/secure
+        chmod 700 /priv/factory/secure
+        cp /manifestCA.pem /priv/factory/secure/
 
         # cannot move-mount out of a shared parent mount, so make sure / is
         # private before we try a move-mount
@@ -236,6 +236,10 @@ soci_udev_settled() {
                ;;
             *)
                soci_log_run mosctl initrd-setup
+               if [ "$name" = "mosboot" ]; then
+                   mkdir -p /sysroot/factory
+                   soci_log_run mount --move /priv/factory /sysroot/factory
+                fi
                soci_info "TPM is ready for general boot"
                ;;
         esac
