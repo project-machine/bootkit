@@ -5,13 +5,15 @@ go 1.19
 require (
 	github.com/anuvu/disko v0.0.11
 	github.com/apex/log v1.9.0
+	github.com/canonical/go-efilib v0.9.3
 	github.com/diskfs/go-diskfs v1.3.0
+	github.com/foxboron/go-uefi v0.0.0-20230218004016-d1bb9a12f92c
 	github.com/opencontainers/image-spec v1.0.3-0.20211202222133-eacdcc10569b
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 	github.com/opencontainers/umoci v0.4.8-0.20220412065115-12453f247749
 	github.com/plus3it/gorecurcopy v0.0.1
 	github.com/urfave/cli v1.22.10
-	golang.org/x/sys v0.3.0
+	golang.org/x/sys v0.5.0
 	stackerbuild.io/stacker v0.40.1
 )
 
@@ -23,7 +25,6 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/anuvu/squashfs v0.0.0-20220228153512-67c8ca12cbf4 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/canonical/go-efilib v0.9.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/containerd/containerd v1.6.1 // indirect
 	github.com/containers/image/v5 v5.16.1 // indirect
@@ -76,6 +77,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
+	github.com/spf13/afero v1.9.3 // indirect
 	github.com/stefanberger/go-pkcs11uri v0.0.0-20201008174630-78d3cae3a980 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/twmb/algoimpl v0.0.0-20170717182524-076353e90b94 // indirect
@@ -85,11 +87,11 @@ require (
 	github.com/vbauerster/mpb/v7 v7.1.5 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.mozilla.org/pkcs7 v0.0.0-20210826202110-33d05740a352 // indirect
-	golang.org/x/crypto v0.3.0 // indirect
-	golang.org/x/net v0.2.0 // indirect
+	golang.org/x/crypto v0.6.0 // indirect
+	golang.org/x/net v0.6.0 // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
-	golang.org/x/term v0.3.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/term v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/genproto v0.0.0-20220303160752-862486edd9cc // indirect
 	google.golang.org/grpc v1.44.0 // indirect

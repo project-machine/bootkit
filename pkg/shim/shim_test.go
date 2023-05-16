@@ -7,9 +7,12 @@ import (
 	"os"
 	"testing"
 
-	efi "github.com/canonical/go-efilib"
 	"github.com/project-machine/bootkit/cert"
 	"github.com/project-machine/bootkit/obj"
+
+	efi "github.com/canonical/go-efilib"
+	"github.com/foxboron/go-uefi/efi/pecoff"
+	peutil "github.com/foxboron/go-uefi/efi/util"
 )
 
 func TestShimHead(t *testing.T) {
@@ -106,6 +109,33 @@ func TestShimUpdate(t *testing.T) {
 
 	if err := obj.SetSections(shimEfi, sections...); err != nil {
 		t.Fatalf("failed set sections: %s", err)
+	}
+
+	signPKey, err := peutil.ReadKeyFromFile("/ssd/smoser/machine/keys/uki-production/privkey.pem")
+	if err != nil {
+		t.Fatalf("failed reading private key")
+	}
+
+	signCert, err := peutil.ReadCertFromFile("/ssd/smoser/machine/keys/uki-production/cert.pem")
+
+	peFile, err := os.ReadFile(shimEfi)
+	if err != nil {
+		t.Fatalf("Failed reading shimEfi for checksumming: %v", err)
+	}
+	ctx := pecoff.PECOFFChecksum(peFile)
+
+	sig, err := pecoff.CreateSignature(ctx, signCert, signPKey)
+	if err != nil {
+		t.Fatalf("Failed createsig:%v", err)
+	}
+
+	signedBin, err := pecoff.AppendToBinary(ctx, sig)
+	if err != nil {
+		t.Fatalf("Failed append :%v", err)
+	}
+
+	if err := os.WriteFile(shimEfi+".signed", signedBin, 0644); err != nil {
+		t.Fatalf("failed write to %s.signed: %v", shimEfi, err)
 	}
 
 }
