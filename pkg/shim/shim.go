@@ -5,9 +5,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"unsafe"
 
 	efi "github.com/canonical/go-efilib"
+	"github.com/project-machine/bootkit/obj"
 )
 
 var nativeEndian binary.ByteOrder
@@ -61,6 +63,28 @@ func VendorDBSectionWrite(writer io.Writer, sigdb, sigdbx efi.SignatureDatabase)
 			return fmt.Errorf("Wrote only %d bytes of %d", n, *b)
 		}
 	}
+	return nil
+}
+
+func SetVendorDB(shim string, db, dbx efi.SignatureDatabase) error {
+	fp, err := ioutil.TempFile("", "setvendordb")
+	if err != nil {
+		return err
+	}
+
+	if err := VendorDBSectionWrite(fp, db, dbx); err != nil {
+		return err
+	}
+
+	fp.Close()
+
+	sections := []obj.SectionInput{
+		{Name: ".vendor_cert", VMA: 0xb4000, Path: fp.Name()}}
+
+	if err := obj.SetSections(shim, sections...); err != nil {
+		return err
+	}
+
 	return nil
 }
 

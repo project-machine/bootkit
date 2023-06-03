@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/project-machine/bootkit/cert"
-	"github.com/project-machine/bootkit/obj"
 
 	efi "github.com/canonical/go-efilib"
 	"github.com/foxboron/go-uefi/efi/pecoff"
@@ -78,38 +77,21 @@ func TestShimUpdate(t *testing.T) {
 		t.Fatalf("Failed LoadSignatureDataDirs: %v", err)
 	}
 
-	sigDB := cert.NewEFISignatureDatabase(sigdataList)
-	sigxDB := cert.NewEFISignatureDatabase([]*efi.SignatureData{})
-
-	vendorSectionFile := "/tmp/vendor.section"
-	fp, err := os.Create(vendorSectionFile)
-	if err != nil {
-		t.Fatalf("Failed to open /tmp/sm.esl: %v", err)
-	}
-
-	if err := VendorDBSectionWrite(fp, sigDB, sigxDB); err != nil {
-		t.Fatalf("Failed vdbwrite: %v", err)
-	}
-
-	fp.Close()
-
 	shimEfiIn := "/ssd/smoser/machine/build-bootkit/stacker/imports/customized/bootkit/shim/shim.efi"
 	shimEfi := "/tmp/shim.efi"
 	if err := copyFileContents(shimEfiIn, shimEfi); err != nil {
 		t.Fatalf("Failec copy shim")
 	}
+
+	err = SetVendorDB(shimEfi, cert.NewEFISignatureDatabase(sigdataList),
+		cert.NewEFISignatureDatabase([]*efi.SignatureData{}))
+
 	// /ssd/smoser/machine/build-bootkit/stacker/imports/customized/bootkit/shim/shim.efi
 	// func SetSections(objpath string, sections ...SectionInput) error {
 	//     set -- objcopy "--remove-section=.vendor_cert" \
 	//        "--add-section=.vendor_cert=$dbsection" \
 	//		        "--change-section-vma=.vendor_cert=0xb4000" \
 	//				        "$input" "$output"
-	sections := []obj.SectionInput{
-		{Name: ".vendor_cert", VMA: 0xb4000, Path: vendorSectionFile}}
-
-	if err := obj.SetSections(shimEfi, sections...); err != nil {
-		t.Fatalf("failed set sections: %s", err)
-	}
 
 	signPKey, err := peutil.ReadKeyFromFile("/ssd/smoser/machine/keys/uki-production/privkey.pem")
 	if err != nil {
@@ -117,6 +99,10 @@ func TestShimUpdate(t *testing.T) {
 	}
 
 	signCert, err := peutil.ReadCertFromFile("/ssd/smoser/machine/keys/uki-production/cert.pem")
+	if err != nil {
+		t.Fatalf("failed reading cert private key")
+
+	}
 
 	peFile, err := os.ReadFile(shimEfi)
 	if err != nil {
