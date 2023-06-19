@@ -11,7 +11,6 @@ import (
 
 	efi "github.com/canonical/go-efilib"
 	"github.com/foxboron/go-uefi/efi/pecoff"
-	peutil "github.com/foxboron/go-uefi/efi/util"
 )
 
 func TestShimHead(t *testing.T) {
@@ -93,12 +92,12 @@ func TestShimUpdate(t *testing.T) {
 	//		        "--change-section-vma=.vendor_cert=0xb4000" \
 	//				        "$input" "$output"
 
-	signPKey, err := peutil.ReadKeyFromFile("/ssd/smoser/machine/keys/uki-production/privkey.pem")
+	signPKey, err := cert.KeyFromPemFile("/ssd/smoser/machine/keys/uki-production/privkey.pem")
 	if err != nil {
 		t.Fatalf("failed reading private key")
 	}
 
-	signCert, err := peutil.ReadCertFromFile("/ssd/smoser/machine/keys/uki-production/cert.pem")
+	signCert, err := cert.CertFromPemFile("/ssd/smoser/machine/keys/uki-production/cert.pem")
 	if err != nil {
 		t.Fatalf("failed reading cert private key")
 

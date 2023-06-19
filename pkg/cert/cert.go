@@ -1,6 +1,7 @@
 package cert
 
 import (
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -26,6 +27,33 @@ func CertFromPem(data []byte) (*x509.Certificate, error) {
 		return nil, fmt.Errorf("No PEM block found")
 	}
 	return x509.ParseCertificate(block.Bytes)
+}
+
+func KeyFromPem(data []byte) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, fmt.Errorf("No PEM block found")
+	}
+
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse key: %w", err)
+	}
+
+	if pkey, ok := key.(*rsa.PrivateKey); ok {
+		return pkey, nil
+	}
+
+	return nil, fmt.Errorf("parsed key was not rsa.PrivateKey")
+}
+
+func KeyFromPemFile(path string) (*rsa.PrivateKey, error) {
+	pemData, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return KeyFromPem(pemData)
 }
 
 func GUIDFromFile(path string) (efi.GUID, error) {
