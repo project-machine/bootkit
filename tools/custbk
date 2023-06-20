@@ -136,29 +136,44 @@ ${0##*/} [global-options] virt-fw-vars [options] <<ARGUMENTS>>
     '$0 virt-fw-vars' wraps a call to 'virt-fw-vars' subcommand but
     handles the extra command line options
 
-      --keydir-<option> for <option> names that take 2 params
-         GUID and FILE
+    for '--set-pk', '--add-kek', '--add-db', '--add-mok', the
+    value can be a single argument beginning with 'keydir' and that
+    directory's guid and cert.pem will be used.
 
-    Instead of
-      guid=$(cat keydir/uefi-pk/guid)
-      --set-pk $guid keydir/uefi-pk/cert.pem
+      example: --set-pk=keydir:my.dir
+      where my.dir has 'guid' and 'cert.pem' files
 
-    It allows:
-
-      --keydir-set-pk=keydir/uefi-pk
-
-    Other than that it is just a passthrough.
+    Other than that it is just a passthrough to virt-fw-vars.
 EOF
 }
 
 virt_fw_vars() {
-    local cur="" key="" val="" pt=""
+    local cur="" next="" key="" val="" pt=""
     pt=( )
 
     while [ $# -ne 0 ]; do
         cur="$1"
+        next="$2"
         case "$cur" in
             -h|--help) Usage "$SUBCMD"; exit 0;;
+            --set-pk=keydir:*|--add-kek=keydir:*|\
+            --add-db=keydir:*|--add-mok=keydir:*)
+                key=${cur%%=*}
+                val=${cur#--*=keydir:}
+                get_guid_cert "$val" || return 1
+                pt=( "${pt[@]}" "$key" "$_RET_guid" "$_RET_cert" )
+                ;;
+            --set-pk|--add-kek|\
+            --add-db|--add-mok)
+                case "$next" in
+                    keydir:*)
+                        get_guid_cert "$next" || return 1
+                        pt=( "${pt[@]}" "$cur" "$_RET_guid" "$_RET_cert" )
+                        ;;
+                    *) pt=( "${pt[@]}" "$cur" "$next" )
+                esac
+                shift
+                ;;
             --keydir-*=*)
                 key=${cur%%=*}
                 key=--${key#--keydir-}

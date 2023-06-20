@@ -60,14 +60,13 @@ customized:
     ### ovmf
     cp "$bkdir/ovmf/ovmf-code.fd" "$outdir/ovmf-code.fd"
     custbk virt-fw-vars \
-      "--keydir-set-pk=$keydir/uefi-pk/" \
-      "--keydir-add-kek=$keydir/uefi-kek/" \
-      "--keydir-add-db=$keydir/uefi-db/" \
+      "--set-pk=keydir:$keydir/uefi-pk/" \
+      "--add-kek=keydir:$keydir/uefi-kek/" \
+      "--add-db=keydir:$keydir/uefi-db/" \
       "--input=$bkdir/ovmf/ovmf-vars.fd" \
       "--output=$outdir/ovmf-vars.fd" \
       "--secure-boot" \
-      "--no-microsoft" \
-      "$@"
+      "--no-microsoft"
 
     ### shim
     custbk build-esl "$workdir/db.esl" \
