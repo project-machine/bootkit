@@ -66,6 +66,8 @@ func VendorDBSectionWrite(writer io.Writer, sigdb, sigdbx efi.SignatureDatabase)
 	return nil
 }
 
+// SetVendorDB - set the VendorDB inside existing file "shim"
+//  with provided db and dbx
 func SetVendorDB(shim string, db, dbx efi.SignatureDatabase) error {
 	fp, err := ioutil.TempFile("", "setvendordb")
 	if err != nil {
