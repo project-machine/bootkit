@@ -1,6 +1,7 @@
 package cert
 
 import (
+	"bytes"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -27,6 +28,14 @@ func CertFromPem(data []byte) (*x509.Certificate, error) {
 		return nil, fmt.Errorf("No PEM block found")
 	}
 	return x509.ParseCertificate(block.Bytes)
+}
+
+func PemFromCert(cert *x509.Certificate) ([]byte, error) {
+	var b bytes.Buffer
+	if err := pem.Encode(&b, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+		return b.Bytes(), err
+	}
+	return b.Bytes(), nil
 }
 
 func KeyFromPem(data []byte) (*rsa.PrivateKey, error) {
@@ -97,7 +106,10 @@ func LoadSignatureDataDirs(dirPaths ...string) ([]*efi.SignatureData, error) {
 //    * efi.CertX509Guid is the Type that is used for shim db
 // SignatureData is a single guid + cert
 // This SignatureDatabase is the same as you would get with:
-//    ( cert-to-efi-sig-list -g X cert.pem ; cert-to-efi-sig-list -g Y cert2.pem ... ) > my.esl
+//    cert-to-efi-sig-list -g X x.pem
+//    cert-to-efi-sig-list -g Y y.pem
+//    ...
+//    cat x.pem y.pem ... > my.esl
 func NewEFISignatureDatabase(sigDatam []*efi.SignatureData) efi.SignatureDatabase {
 	sigdb := efi.SignatureDatabase{}
 	for _, sigdata := range sigDatam {

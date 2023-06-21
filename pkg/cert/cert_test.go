@@ -32,7 +32,8 @@ yv7/3YnsOGeaxgubaYNue0C7IMQLsl2i+jClbLgnpcMRT2osMJDXY7rbwOEQwYyi
 kjn4URm7Wb9dDMeHInIWC3ZmZWXdBeLCqr9vDktWIlQk0iFfN2ezVqUNEbdGijKn
 bvlmGsZgFa491cCFtg/6SilS/3LrY6y8vhdcya7ZNra5nYlM1Dc7CG/1qD8ZU2A3
 7nd6W+bAEh4sUMjD3PtXuD8=
------END CERTIFICATE-----`)
+-----END CERTIFICATE-----
+`)
 
 func guidFromString(guidStr string) efi.GUID {
 	asGuid, err := efi.DecodeGUIDString(guidStr)
@@ -107,6 +108,25 @@ func TestLoadDataDir(t *testing.T) {
 
 	if !bytes.Equal(sigdata.Data, cert.Raw) {
 		t.Errorf("Data bad. Found (len=%d) != Expected (len=%d)", len(sigdata.Data), len(cert.Raw))
+	}
+
+}
+
+func TestReadWriteCert(t *testing.T) {
+	cert, err := CertFromPem(uefiDBPEM)
+	if err != nil {
+		t.Fail()
+	}
+
+	pem, err := PemFromCert(cert)
+	if err != nil {
+		t.Fail()
+	}
+
+	if bytes.Compare(pem, uefiDBPEM) != 0 {
+		fmt.Printf("|%s|\n\n", uefiDBPEM)
+		fmt.Printf("|%s|\n\n", pem)
+		t.Errorf("differed.")
 	}
 
 }
