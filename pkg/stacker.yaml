@@ -55,4 +55,4 @@ build-pkg:
     export GOPATH=/build/bootkit/.go
     export GOCACHE=$GOPATH/cache
 
-    go build -tags containers_image_openpgp ./...
+    make go-build

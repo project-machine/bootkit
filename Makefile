@@ -14,6 +14,13 @@ custom:
 pkg-build:
 	cd pkg && $(STACKER_BUILD)
 
+go-build:
+	@vr() { echo "$$@" 1>&2; "$$@"; } ; \
+		build() { for f in "$$@"; do \
+		  vr go build -buildmode=exe -tags containers_image_openpgp "$$f" || break; done; } ; \
+		  vr cd pkg && export GO_BIN=. && build ./... ./cmd/*
+
+
 LAYERS := $(shell cd $(TOP_D)/layers && \
 				  for d in *; do [ -f "$$d/stacker.yaml" ] && echo "$$d"; done )
 
