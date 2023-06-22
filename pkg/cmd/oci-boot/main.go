@@ -23,7 +23,7 @@ import (
 	"github.com/opencontainers/umoci"
 	"github.com/opencontainers/umoci/oci/casext"
 	"github.com/opencontainers/umoci/oci/layer"
-	cli "github.com/urfave/cli"
+	cli "github.com/urfave/cli/v2"
 	"stackerbuild.io/stacker/pkg/lib"
 	stackeroci "stackerbuild.io/stacker/pkg/oci"
 )
@@ -348,7 +348,7 @@ type OciBoot struct {
 	Layers     []string          `json:"layers"`
 	cleanups   []func() error
 	bootKitDir string
-	RepoDir    string            `json:"repodir"`
+	RepoDir    string `json:"repodir"`
 }
 
 func genGptDisk(fpath string, fsize int64) (disko.Disk, error) {
@@ -894,7 +894,6 @@ func (o *OciBoot) Populate(target string) error {
 		}
 	}
 
-
 	if len(o.Layers) != 0 {
 		ociDest := "oci:" + ociDir + ":"
 		for i, src := range o.Layers {
@@ -970,13 +969,13 @@ func doMain(ctx *cli.Context) error {
 		log.SetLevel(log.DebugLevel)
 	}
 	args := ctx.Args()
-	if len(args) < 2 {
+	if args.Len() < 2 {
 		return fmt.Errorf("Need at very least 2 args: output, bootkit-source")
 	}
 	ociBoot := OciBoot{}
 
-	output := args[0]
-	ociBoot.BootKit = args[1]
+	output := args.Get(0)
+	ociBoot.BootKit = args.Get(1)
 
 	// TODO - we should probably instead just accept the distribution spec
 	// url for the manifest, and ourselves copy the manifest, any needed
@@ -986,12 +985,12 @@ func doMain(ctx *cli.Context) error {
 		ociBoot.RepoDir = ctx.String("sync-repodir")
 	}
 
-	if len(args) > 2 {
-		ociBoot.BootLayer = args[2]
+	if args.Len() > 2 {
+		ociBoot.BootLayer = args.Get(2)
 	}
 
-	if len(args) > 3 {
-		ociBoot.Layers = args[3:]
+	if args.Len() > 3 {
+		ociBoot.Layers = args.Slice()[3:]
 	}
 
 	ociBoot.Files = map[string]string{}
@@ -1047,33 +1046,33 @@ func main() {
 	app.Version = "1.0.1"
 	app.Action = doMain
 	app.Flags = []cli.Flag{
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "debug",
 			Usage: "display additional debug information on stderr",
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "cdrom",
 			Usage: "create a cdrom (iso9660) rather than a disk",
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:   "use-diskfs",
 			Usage:  "use the go-diskfs for fat filesystem operations",
 			Hidden: true,
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "boot",
 			Usage: "boot-mode: one of 'efi-shim', 'efi-kernel', or 'efi-auto'",
 			Value: EFIBootModes[EFIAuto],
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "cmdline",
 			Usage: "cmdline: additional parameters for kernel command line",
 		},
-		cli.StringSliceFlag{
+		&cli.StringSliceFlag{
 			Name:  "sync-repodir",
 			Usage: "Synchronize given repo directory to /zot-cache",
 		},
-		cli.StringSliceFlag{
+		&cli.StringSliceFlag{
 			Name:  "insert",
 			Usage: "list of additional files in <src>:<dest> format to copy to iso",
 		},
