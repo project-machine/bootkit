@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/project-machine/bootkit/cert"
+	"github.com/project-machine/bootkit/pkg/cert"
 
 	efi "github.com/canonical/go-efilib"
 	"github.com/foxboron/go-uefi/efi/pecoff"

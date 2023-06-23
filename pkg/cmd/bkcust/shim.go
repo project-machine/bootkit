@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	efi "github.com/canonical/go-efilib"
-	"github.com/project-machine/bootkit/cert"
-	"github.com/project-machine/bootkit/shim"
+	"github.com/project-machine/bootkit/pkg/cert"
+	"github.com/project-machine/bootkit/pkg/shim"
 	cli "github.com/urfave/cli/v2"
 )
 

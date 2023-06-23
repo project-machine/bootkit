@@ -3,7 +3,7 @@ package obj
 import (
 	"fmt"
 
-	"github.com/project-machine/bootkit/run"
+	"github.com/project-machine/bootkit/pkg/run"
 )
 
 type SectionInput struct {

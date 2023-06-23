@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/project-machine/bootkit/obj"
+	"github.com/project-machine/bootkit/pkg/obj"
 )
 
 func copyFileContents(src, dst string) (err error) {

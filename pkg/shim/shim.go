@@ -9,7 +9,7 @@ import (
 	"unsafe"
 
 	efi "github.com/canonical/go-efilib"
-	"github.com/project-machine/bootkit/obj"
+	"github.com/project-machine/bootkit/pkg/obj"
 )
 
 var nativeEndian binary.ByteOrder

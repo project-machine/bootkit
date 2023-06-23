@@ -1,4 +1,4 @@
-module github.com/project-machine/bootkit
+module github.com/project-machine/bootkit/pkg
 
 go 1.19
 

@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/foxboron/go-uefi/efi/pecoff"
-	"github.com/project-machine/bootkit/cert"
+	"github.com/project-machine/bootkit/pkg/cert"
 	cli "github.com/urfave/cli/v2"
 )
 
