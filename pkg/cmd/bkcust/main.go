@@ -14,10 +14,11 @@ func main() {
 	app.Usage = "Create customized artifacts from a bootkit"
 	app.Version = "0.0.1"
 	app.Commands = []*cli.Command{
+		&initrdCmd,
 		&shimCmd,
 		&signEfiCmd,
-		&virtFwCmd,
 		&stubbyCmd,
+		&virtFwCmd,
 	}
 	app.Flags = []cli.Flag{
 		&cli.BoolFlag{

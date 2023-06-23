@@ -16,7 +16,8 @@ import (
 type Compression int
 
 const (
-	Identity Compression = iota
+	Undetermined Compression = iota
+	Identity
 	Gzip
 )
 
