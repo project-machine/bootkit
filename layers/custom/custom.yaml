@@ -32,6 +32,7 @@ customized:
     tag: build-customize
   import:
     - path: ../../tools/custbk
+    - path: ../../pkg/bkcust
     - path: ${{KEYSET_D}}/
       dest: /import/keys/
     - path: stacker://custom-bootkit-input/bootkit
@@ -59,6 +60,13 @@ customized:
 
     ### ovmf
     cp "$bkdir/ovmf/ovmf-code.fd" "$outdir/ovmf-code.fd"
+    /stacker/bkcust virtfw secure-boot \
+        --output=$outdir/ovmf-vars.fd.bkcust \
+        "--platform=$keydir/uefi-pk" \
+        "--kek=$keydir/uefi-kek" \
+        "--db=$keydir/uefi-db" \
+        "$bkdir/ovmf/ovmf-vars.fd"
+
     custbk virt-fw-vars \
       "--set-pk=keydir:$keydir/uefi-pk/" \
       "--add-kek=keydir:$keydir/uefi-kek/" \
@@ -69,6 +77,15 @@ customized:
       "--no-microsoft"
 
     ### shim
+    /stacker/bkcust shim set-db \
+        --output="$outdir/shim.efi.bkcust" \
+        "$bkdir/shim/shim.efi" \
+        "$keydir/uki-limited" \
+        "$keydir/uki-production" \
+        "$keydir/uki-tpm"
+    /stacker/bkcust sign-efi "$outdir/shim.efi.bkcust" \
+        "$keydir/uefi-db/cert.pem" "$keydir/uefi-db/privkey.pem"
+
     custbk build-esl "$workdir/db.esl" \
         "keydir:$keydir/uki-limited" \
         "keydir:$keydir/uki-production" \
@@ -79,6 +96,7 @@ customized:
         "--output=$outdir/shim.efi" "$outdir/shim.efi"
 
     ### kernel
+    # IMPLEMENT ME PLEASER
     ixdir="$workdir/initrd-extra"
     mkdir "$ixdir"
     cp "$keydir/manifest-ca/cert.pem" "$ixdir/manifestCA.pem"
@@ -91,6 +109,14 @@ customized:
         "$bkdir/mos/initrd-mos.cpio.gz" \
         "dir:$ixdir"
     rm -Rf "$ixdir"
+
+    # uki / smoosh
+    /stacker/bkcust stubby smoosh --cmdline="" \
+        "$outdir/kernel.efi.bkcust" "$bkdir/stubby/stubby.efi" \
+        "$bkdir/kernel/boot/vmlinuz" \
+        "$workdir/initrd.img"
+    /stacker/bkcust sign-efi "$outdir/kernel.efi.bkcust" \
+        "$keydir/uki-production/cert.pem" "$keydir/uki-production/privkey.pem"
 
     custbk smoosh \
         --cmdline="" \

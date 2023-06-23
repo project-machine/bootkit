@@ -30,3 +30,10 @@ STACKER_PUBLISH = stacker $(STACKER_OPTS) publish \
 # It expands to:
 # [ -n "value-of-$VARNAME" ] || { echo "rule-name ...VARNAME"; exit 1; }
 required_var = [ -n "$(value $1)" ] || { echo "$@ requires environment variable $1"; exit 1; }
+
+ALL_GO_FILES := $(wildcard pkg/*.go pkg/*/*.go pkg/*/*/*.go)
+
+pkg_build = vr() { echo "$$@" 1>&2; "$$@"; } ; \
+		build() { for f in "$$@"; do \
+		  vr go build -buildmode=exe -tags containers_image_openpgp "$$f" || break; done; } ; \
+		  vr cd pkg && export GO_BIN=. && build $(1)

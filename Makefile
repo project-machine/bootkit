@@ -1,4 +1,5 @@
 NAME := bootkit
+COMMANDS = pkg/bkcust pkg/oci-boot
 
 include subs.mk
 include common.mk
@@ -7,18 +8,20 @@ include common.mk
 build:
 	$(STACKER_RBUILD)
 
-custom:
+custom: pkg/bkcust
 	$(STACKER_BUILD) --stacker-file=layers/custom/custom.yaml
+
+bin: $(COMMANDS)
+
+$(COMMANDS): $(ALL_GO_FILES)
+	@$(call pkg_build,./cmd/$(notdir $@))
 
 .PHONY: pkg-build
 pkg-build:
 	cd pkg && $(STACKER_BUILD)
 
-go-build:
-	@vr() { echo "$$@" 1>&2; "$$@"; } ; \
-		build() { for f in "$$@"; do \
-		  vr go build -buildmode=exe -tags containers_image_openpgp "$$f" || break; done; } ; \
-		  vr cd pkg && export GO_BIN=. && build ./... ./cmd/*
+go-build: $(ALL_GO_FILES) $(COMMANDS)
+	@$(call pkg_build,./... ./cmd/*)
 
 
 LAYERS := $(shell cd $(TOP_D)/layers && \
