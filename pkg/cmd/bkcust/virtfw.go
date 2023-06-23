@@ -144,5 +144,7 @@ func doVirtFW(ctx *cli.Context) error {
 		}
 	}
 
+	fmt.Fprintf(os.Stderr, "Wrote to %s\n", ovmfVarsOut)
+
 	return nil
 }

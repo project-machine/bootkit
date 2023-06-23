@@ -17,6 +17,7 @@ func main() {
 		&shimCmd,
 		&signEfiCmd,
 		&virtFwCmd,
+		&stubbyCmd,
 	}
 	app.Flags = []cli.Flag{
 		&cli.BoolFlag{

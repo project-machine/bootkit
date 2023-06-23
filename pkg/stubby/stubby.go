@@ -1,10 +1,35 @@
 package stubby
 
 import (
+	"fmt"
+	"io"
 	"os"
 
 	"github.com/project-machine/bootkit/obj"
 )
+
+func copyFileContents(src, dst string) (err error) {
+	in, err := os.Open(src)
+	if err != nil {
+		return
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return
+	}
+	defer func() {
+		cerr := out.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
+	if _, err = io.Copy(out, in); err != nil {
+		return
+	}
+	err = out.Sync()
+	return
+}
 
 // Smoosh - create unified kernel image 'uki' from stubby 'stubEfi'
 //    with the provided cmdline and using kernel file 'kernel' initramfs file 'initrd'
@@ -20,6 +45,10 @@ import (
 //     "--change-section-vma=.initrd=0x3000000"
 //     "$stubefi" "$output"
 func Smoosh(stubEfi string, uki string, cmdline, sbat, kernel, initrd string) error {
+	if err := copyFileContents(stubEfi, uki); err != nil {
+		return fmt.Errorf("Failed to copy %s -> %s", stubEfi, uki)
+	}
+
 	tmpd, err := os.MkdirTemp("", "smoosh-")
 	if err != nil {
 		return err
@@ -52,5 +81,5 @@ func Smoosh(stubEfi string, uki string, cmdline, sbat, kernel, initrd string) er
 		{Name: ".initrd", VMA: 0x3000000, Path: initrd},
 	}
 
-	return obj.SetSections(stubEfi, sections...)
+	return obj.SetSections(uki, sections...)
 }
