@@ -93,13 +93,13 @@ start_zot() {
 Description=Start zot for soci mount
 
 [Service]
+StandardOutput=journal+console
+StandardError=journal+console
 Type=simple
 Environment=XDG_CONFIG_HOME=$xdgcfghome
-ConfigurationDirectory=$xdgcfghome
+ExecStartPre=/bin/mkdir -p $xdgcfghome
 ExecStart=/usr/bin/zot serve /etc/zot-config.json
 StandardInput=tty-force
-StandardOutput=inherit
-StandardError=inherit
 
 [Install]
 WantedBy=multi-user.target
