@@ -8,8 +8,10 @@ mos-build:
     type: built
     tag: build-krd
   import:
-    - ${{MOSCTL_BINARY:https://github.com/project-machine/mos/releases/download/0.0.9/mosctl}}
-    - ${{ZOT_BINARY:https://github.com/project-zot/zot/releases/download/v1.4.3/zot-linux-amd64-minimal}}
+    - path: ${{MOSCTL_BINARY}}
+      dest: /imports/mosctl/
+    - path: ${{ZOT_BINARY}}
+      dest: /imports/zot/
     - zot-config.json
   run: |
     d=$(mktemp -d)
@@ -23,10 +25,19 @@ mos-build:
     cp /stacker/zot-config.json "$workd/etc/"
 
     mkdir -p "$workd/usr/bin"
-    for bin in mosctl:mosctl zot-linux-amd64-minimal:zot ; do
-      t=$workd/usr/bin/${bin#*:}
-      cp -v /stacker/${bin%:*} $t
-      chmod 755 $t
+
+    # working around https://github.com/project-stacker/stacker/issues/456
+    for bin in mosctl zot; do
+      t="$workd/usr/bin/$bin"
+      src=$(echo /imports/$bin/*)
+      [ -f "$src" ] || {
+        echo "import for $bin: was not a file"
+        echo "glob resolved to: $src"
+        echo "/imports/$bin/ has:"
+        ls -l /imports/$bin/
+      }
+      cp -v "$src" "$t"
+      chmod 755 "$t"
     done
 
     # dracut-install will pick up all the deps for these binaries
