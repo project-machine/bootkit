@@ -87,12 +87,15 @@ wait_on_zot() {
 }
 
 start_zot() {
+    local xdgcfghome="/root/.zot-xdg-config-home"
     cat > /etc/systemd/system/soci-zot.service << EOF
 [Unit]
 Description=Start zot for soci mount
 
 [Service]
 Type=simple
+Environment=XDG_CONFIG_HOME=$xdgcfghome
+ConfigurationDirectory=$xdgcfghome
 ExecStart=/usr/bin/zot serve /etc/zot-config.json
 StandardInput=tty-force
 StandardOutput=inherit
