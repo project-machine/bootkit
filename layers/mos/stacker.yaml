@@ -45,7 +45,7 @@ mos-build:
     # twice in final initramfs cpio (once from core and once from here)
     /usr/lib/dracut/dracut-install -D "$workd" --ldd --resolvelazy "$workd/usr/bin"/*
 
-    create-cpio "$workd" "$d/initrd/mos.cpio.gz"
+    create-cpio "$workd" "$d/mos/initrd-mos.cpio.gz"
 
     mkdir /export
-    tar -C "$d" -cf /export/mos.tar initrd/
+    tar -C "$d" -cf /export/mos.tar mos/

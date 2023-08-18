@@ -1,9 +1,10 @@
 config:
   prerequisites:
     - ../kernel/stacker.yaml
-    - ../shim/stacker.yaml
-    - ../uki/stacker.yaml
+    - ../mos/stacker.yaml
     - ../ovmf/stacker.yaml
+    - ../shim/stacker.yaml
+    - ../stubby/stacker.yaml
 
 bootkit-assemble:
   build_only: true
@@ -11,28 +12,21 @@ bootkit-assemble:
     type: built
     tag: build-krd
   import:
-    - stacker://shim-build/export/shim.tar
-    - stacker://uki-build/export/uki.tar
+    - stacker://kernel-build/export/initrd.tar
+    - stacker://kernel-build/export/kernel.tar
+    - stacker://mos-build/export/mos.tar
     - stacker://ovmf-build/export/ovmf.tar
-    - stacker://kernel-build/export/boot.tar
-    - stacker://kernel-build/export/modules.squashfs
+    - stacker://shim-build/export/shim.tar
+    - stacker://stubby-build/export/stubby.tar
   run: |
     #!/bin/bash -ex
     d=$(mktemp -d)
     trap "rm -Rf $d" EXIT
 
-    tar -C "$d" -xf /stacker/shim.tar
-    tar -C "$d" -xf /stacker/uki.tar
-    tar -C "$d" -xf /stacker/ovmf.tar
-
-    prepd="$d/bootkit"
-    mkdir "$prepd"
-    cp "$d/shim/shim.efi" "$prepd/shim.efi"
-    cp "$d/uki/kernel.efi" "$prepd/kernel.efi"
-    cp "$d/ovmf/ovmf-vars.fd" "$prepd/ovmf-vars.fd"
-    cp "$d/ovmf/ovmf-vars-empty.fd" "$prepd/ovmf-vars-empty.fd"
-    cp "$d/ovmf/ovmf-code.fd" "$prepd/ovmf-code.fd"
-    cp /stacker/boot.tar /stacker/modules.squashfs "$prepd"
+    mkdir "$d/bootkit"
+    for f in /stacker/*.tar; do
+        tar -C "$d/bootkit" -xf "$f"
+    done
 
     mkdir /export
     tar -C "$d" -cf /export/bootkit.tar bootkit/
