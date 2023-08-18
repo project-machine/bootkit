@@ -28,6 +28,7 @@ shim-build:
     d=$(mktemp -d)
     trap "rm -Rf $d" EXIT
 
+    ARCH=$(uname -m)
     cd $d
     keydir=$(echo /import/keys/*)
     [ -d "$keydir" ]
@@ -80,7 +81,12 @@ shim-build:
     sha256sum *.efi
 
     mkdir $d/shim
-    cp $shimd/shimx64.efi $d/shim/shim-unsigned.efi
+    if [ "$ARCH" = "x86_64" ]; then
+      cp $shimd/shimx64.efi $d/shim/shim-unsigned.efi
+    elif [ "$ARCH" = "aarch64" ]; then
+      cp $shimd/shimaa64.efi $d/shim/shim-unsigned.efi
+    fi
+
     sbsign \
         "--cert=$keydir/uefi-db/cert.pem" \
         "--key=$keydir/uefi-db/privkey.pem" \

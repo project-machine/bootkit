@@ -49,7 +49,7 @@ uki-build:
     tar -C "$d" -xf /stacker/stubby.tar
     [ -f "$stubefi" ] ||
         { echo "stubby.tar did not have a stubby/stubby.efi"; exit 1; }
-
+    stubefi="/usr/lib/systemd/boot/efi/linuxaa64.efi.stub"
     keyworkd="$d/keyworkd"
     mkdir "$keyworkd"
     cp "$keydir/manifest-ca/cert.pem" "$keyworkd/manifestCA.pem"

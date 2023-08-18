@@ -1,5 +1,8 @@
 KEYSET ?= snakeoil
 DOCKER_BASE ?= docker://
+ifeq (${ARCH},aarch64)
+UBUNTU_MIRROR := http://ports.ubuntu.com/ubuntu-ports
+endif
 UBUNTU_MIRROR ?= http://archive.ubuntu.com/ubuntu
 KEYSET_D ?= $(HOME)/.local/share/machine/trust/keys/$(KEYSET)
 

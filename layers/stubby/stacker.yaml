@@ -16,7 +16,7 @@ stubby-build:
     type: built
     tag: stubby-build-env
   import:
-    - "https://github.com/puzzleos/stubby/archive/refs/tags/v1.0.1.tar.gz"
+    - https://github.com/puzzleos/stubby/archive/refs/tags/v1.0.2.tar.gz
   run: |
     #!/bin/bash -ex
     tarball=$(echo /stacker/v*.tar.gz)

@@ -2,20 +2,27 @@ config:
   prerequisites:
     - ../minbase/stacker.yaml
 
-ovmf-build-env:
+virt-firmware-build-env:
   build_only: true
   from:
     type: built
     tag: minbase
   run: |
-    pkgtool install python3 python3-pip ovmf
+    pkgtool install python3 python3-pip 
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "aarch64" ]; then
+      pkgtool install qemu-system-arm qemu-efi-aarch64
+    else
+      pkgtool install ovmf
+    fi
+    
     pip install virt-firmware
 
-ovmf-build:
+virt-firmware-build:
   build_only: true
   from:
     type: built
-    tag: ovmf-build-env
+    tag: virt-firmware-build-env
   import:
     - path: ${{KEYSET_D}}/
       dest: /import/keys/
@@ -23,7 +30,9 @@ ovmf-build:
     d=$(mktemp -d)
     trap "rm -Rf $d" EXIT
 
-    mkdir "$d/ovmf"
+    ARCH=$(uname -m)
+
+    mkdir "$d/virt-fw"
     keydir=$(echo /import/keys/*)
     [ -d "$keydir" ]
 
@@ -56,10 +65,16 @@ ovmf-build:
       echo "$guid" "$certf"
     }
 
-    codef=/usr/share/OVMF/OVMF_CODE.secboot.fd
-    varsf=/usr/share/OVMF/OVMF_VARS.fd
-    cp "$codef" "$d/ovmf/ovmf-code.fd"
-    cp "$varsf" "$d/ovmf/ovmf-vars-empty.fd"
+    if [ "$ARCH" = "aarch64" ]; then
+      codef=/usr/share/AAVMF/AAVMF_CODE.ms.fd
+      varsf=/usr/share/AAVMF/AAVMF_VARS.ms.fd
+    else
+      codef=/usr/share/OVMF/OVMF_CODE.secboot.fd
+      varsf=/usr/share/OVMF/OVMF_VARS.fd
+    fi
+    
+    cp "$codef" "$d/virt-fw/virt-firmware-code.fd"
+    cp "$varsf" "$d/virt-fw/virt-firmware-vars-empty.fd"
     set +x
     set -- \
        --set-pk  $(getGuidCert "$keydir" uefi-pk) \
@@ -70,10 +85,10 @@ ovmf-build:
     set -x
     virt-fw-vars \
       "--input=$varsf" \
-      "--output=$d/ovmf/ovmf-vars.fd" \
+      "--output=$d/virt-fw/virt-firmware-vars.fd" \
       --secure-boot \
       --no-microsoft \
       "$@"
 
     mkdir /export
-    tar -C "$d" -cvf /export/ovmf.tar ovmf
+    tar -C "$d" -cvf /export/virt-firmware.tar virt-fw

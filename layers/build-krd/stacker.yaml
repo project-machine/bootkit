@@ -9,6 +9,7 @@ build-krd-pkg:
     tag: minbase
   run: |
     #!/bin/bash -ex
+    ARCH=$(uname -m)
     pkgs=( )
     # packages used for initrd runtime or dracut initrd build.
     pkgs=( "${pkgs[@]}" 
@@ -30,7 +31,12 @@ build-krd-pkg:
     # packages used by build-initrd
     pkgs=( "${pkgs[@]}" cpio dracut-core fakeroot pigz )
     # firmware
-    pkgs=( "${pkgs[@]}" linux-firmware intel-microcode amd64-microcode )
+    if [ "$ARCH" = "x86_64" ]; then
+      pkgs=( "${pkgs[@]}" linux-firmware intel-microcode amd64-microcode )
+    elif [ "$ARCH" = "aarch64" ]; then
+      pkgs=( "${pkgs[@]}" linux-firmware util-linux )
+    fi
+    
     # uki tools
     pkgs=( "${pkgs[@]}" efitools pigz )
 

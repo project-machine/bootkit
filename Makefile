@@ -1,5 +1,7 @@
 NAME := bootkit
 
+ARCH := $(shell uname -m )
+
 include subs.mk
 include common.mk
 

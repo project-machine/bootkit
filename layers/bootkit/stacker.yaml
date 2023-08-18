@@ -3,7 +3,7 @@ config:
     - ../kernel/stacker.yaml
     - ../shim/stacker.yaml
     - ../uki/stacker.yaml
-    - ../ovmf/stacker.yaml
+    - ../virt-firmware/stacker.yaml
 
 bootkit-assemble:
   build_only: true
@@ -13,7 +13,7 @@ bootkit-assemble:
   import:
     - stacker://shim-build/export/shim.tar
     - stacker://uki-build/export/uki.tar
-    - stacker://ovmf-build/export/ovmf.tar
+    - stacker://virt-firmware-build/export/virt-firmware.tar
     - stacker://kernel-build/export/boot.tar
     - stacker://kernel-build/export/modules.squashfs
   run: |
@@ -23,15 +23,15 @@ bootkit-assemble:
 
     tar -C "$d" -xf /stacker/shim.tar
     tar -C "$d" -xf /stacker/uki.tar
-    tar -C "$d" -xf /stacker/ovmf.tar
+    tar -C "$d" -xf /stacker/virt-firmware.tar
 
     prepd="$d/bootkit"
     mkdir "$prepd"
     cp "$d/shim/shim.efi" "$prepd/shim.efi"
     cp "$d/uki/kernel.efi" "$prepd/kernel.efi"
-    cp "$d/ovmf/ovmf-vars.fd" "$prepd/ovmf-vars.fd"
-    cp "$d/ovmf/ovmf-vars-empty.fd" "$prepd/ovmf-vars-empty.fd"
-    cp "$d/ovmf/ovmf-code.fd" "$prepd/ovmf-code.fd"
+    cp "$d/virt-fw/virt-firmware-vars.fd" "$prepd/virt-firmware-vars.fd"
+    cp "$d/virt-fw/virt-firmware-vars-empty.fd" "$prepd/virt-firmware-vars-empty.fd"
+    cp "$d/virt-fw/virt-firmware-code.fd" "$prepd/virt-firmware-code.fd"
     cp /stacker/boot.tar /stacker/modules.squashfs "$prepd"
 
     mkdir /export
