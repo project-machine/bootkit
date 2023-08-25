@@ -27,7 +27,7 @@ jobs:
           stacker --version
 
           sudo wget --progress=dot:mega -O /usr/bin/trust \
-              https://github.com/project-machine/trust/releases/download/0.0.3/trust
+              https://github.com/project-machine/trust/releases/download/v0.0.9/trust-linux-amd64
           sudo chmod 755 /usr/bin/trust
           trust keyset add snakeoil
       - name: build bootkit
