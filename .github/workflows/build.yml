@@ -20,7 +20,8 @@ jobs:
       - name: Prepare environment
         run: |
           sudo add-apt-repository -y ppa:project-machine/squashfuse
-          sudo apt-get install squashfuse
+          sudo apt-get install pip squashfuse
+          sudo pip install virt-firmware
           sudo wget --progress=dot:mega -O /usr/bin/stacker \
               https://github.com/project-stacker/stacker/releases/download/v1.0.0-rc4/stacker
           sudo chmod 755 /usr/bin/stacker
