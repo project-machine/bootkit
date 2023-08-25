@@ -1,8 +1,7 @@
 TOP_D := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 
 MAIN_VERSION = $(shell git describe --tags --always \
-        "--match=[0-9].[0-9]*" "--match=[0-9][0-9].[0-9]*" \
-        "--match=[0-9]-dev[0-9]*" "--match=[0-9][0-9]-dev[0-9]" \
+        "--match=v[0-9].[0-9]*" "--match=v[0-9][0-9].[0-9]*" \
         || echo no-git)
 ifeq ($(MAIN_VERSION),$(filter $(MAIN_VERSION), "", no-git))
 $(error "Bad value for MAIN_VERSION: '$(MAIN_VERSION)'")
