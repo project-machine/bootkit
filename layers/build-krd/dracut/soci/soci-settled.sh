@@ -228,7 +228,9 @@ soci_udev_settled() {
                soci_info "Preinstall completed"
                ;;
             provision)
-               soci_log_run tpm2_pcrread sha256:7 -o /sysroot/pcr7.bin > /sysroot/pcr7.out
+               if [ ! -f /sysroot/pcr7.bin ]; then
+                   soci_log_run tpm2_pcrread sha256:7 -o /sysroot/pcr7.bin > /sysroot/pcr7.out
+               fi
                soci_log_run tpm2_pcrextend "7:sha256=b7135cbb321a66fa848b07288bd008b89bd5b7496c4569c5e1a4efd5f7c8e0a7"
                soci_info "PCR7 has been extended.  Ready to provision."
                ;;
