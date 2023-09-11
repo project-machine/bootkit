@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/project-machine/bootkit/pkg/obj"
-	"github.com/project-machine/bootkit/pkg/util"
+	"github.com/project-machine/bootkit/go/pkg/obj"
+	"github.com/project-machine/bootkit/go/pkg/util"
 )
 
 // Smoosh - create unified kernel image 'uki' from stubby 'stubEfi'

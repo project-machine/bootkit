@@ -1,4 +1,4 @@
-module github.com/project-machine/bootkit
+module github.com/project-machine/bootkit/go
 
 go 1.21
 
