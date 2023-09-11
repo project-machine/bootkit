@@ -14,15 +14,14 @@ custom: pkg/bkcust
 bin: $(COMMANDS)
 
 $(COMMANDS): $(ALL_GO_FILES)
-	@$(call pkg_build,./cmd/$(notdir $@))
+	@$(call go_build,./cmd/$(notdir $@))
 
-.PHONY: pkg-build
-pkg-build:
-	cd pkg && $(STACKER_BUILD)
+.PHONY: go-stacker-build
+go-stacker-build:
+	cd go && $(STACKER_BUILD)
 
 go-build: $(ALL_GO_FILES) $(COMMANDS)
-	@$(call pkg_build,./... ./cmd/*)
-
+	@$(call go_build,./...)
 
 LAYERS := $(shell cd $(TOP_D)/layers && \
 				  for d in *; do [ -f "$$d/stacker.yaml" ] && echo "$$d"; done )

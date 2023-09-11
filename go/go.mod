@@ -1,6 +1,6 @@
 module github.com/project-machine/bootkit/go
 
-go 1.21
+go 1.20
 
 require (
 	github.com/anuvu/disko v0.0.11
