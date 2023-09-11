@@ -4,8 +4,8 @@ COMMANDS = pkg/bkcust pkg/oci-boot
 include subs.mk
 include common.mk
 
-.PHONY: build
-build:
+.PHONY: layers
+layers:
 	$(STACKER_RBUILD)
 
 custom: pkg/bkcust

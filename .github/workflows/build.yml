@@ -32,7 +32,10 @@ jobs:
               https://github.com/project-machine/trust/releases/download/v0.0.9/trust-linux-amd64
           sudo chmod 755 /usr/bin/trust
           trust keyset add snakeoil
-      - name: build bootkit
+      - name: build golang
+        run: |
+          make go-stacker-build
+      - name: build layers
         run: |
           make STACKER_COMMON_OPTS=--debug
       - name: Publish zot
