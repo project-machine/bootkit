@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	efi "github.com/canonical/go-efilib"
-	. "github.com/project-machine/bootkit/pkg/cert"
+	. "github.com/project-machine/bootkit/go/pkg/cert"
 )
 
 var uefiDBPEM = []byte(`-----BEGIN CERTIFICATE-----

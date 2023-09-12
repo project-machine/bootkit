@@ -7,7 +7,7 @@ import (
 
 	"compress/gzip"
 
-	"github.com/project-machine/bootkit/pkg/initrd"
+	"github.com/project-machine/bootkit/go/pkg/initrd"
 	cli "github.com/urfave/cli/v2"
 )
 

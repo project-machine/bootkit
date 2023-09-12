@@ -8,7 +8,7 @@ buildenv-pkg:
     type: built
     tag: minbase
   import:
-    - https://go.dev/dl/go1.19.4.linux-amd64.tar.gz
+    - https://go.dev/dl/go1.20.8.linux-amd64.tar.gz
   run: |
     pkgtool install gcc git libc6-dev make pkg-config \
       libcap-dev libacl1-dev libsquashfs-dev libdevmapper-dev \
@@ -51,7 +51,7 @@ build-pkg:
   binds:
     - ${{TOP_D}} -> /build/bootkit
   run: |
-    cd /build/bootkit/pkg
+    cd /build/bootkit/
     export GOPATH=/build/bootkit/.go
     export GOCACHE=$GOPATH/cache
 

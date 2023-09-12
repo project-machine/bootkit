@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/project-machine/bootkit/pkg/cert"
-	"github.com/project-machine/bootkit/pkg/run"
+	"github.com/project-machine/bootkit/go/pkg/cert"
+	"github.com/project-machine/bootkit/go/pkg/run"
 
 	efi "github.com/canonical/go-efilib"
 )

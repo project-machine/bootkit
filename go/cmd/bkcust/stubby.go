@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/project-machine/bootkit/pkg/stubby"
+	"github.com/project-machine/bootkit/go/pkg/stubby"
 	cli "github.com/urfave/cli/v2"
 )
 
