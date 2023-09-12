@@ -40,8 +40,10 @@ customized:
     d=$(mktemp -d)
     trap "rm -Rf $d" EXIT
 
-    cp /stacker/custbk /usr/local/bin/custbk
-    chmod 755 /usr/local/bin/custbk
+    importd=/stacker/imports
+    cp $importd/custbk /usr/local/bin/custbk
+    cp $importd/bkcust /usr/local/bin/bkcust
+    chmod 755 /usr/local/bin/custbk /usr/local/bin/bkcust
 
     workdir=$d/workd
     bkdir="/stacker/bootkit"
@@ -60,7 +62,7 @@ customized:
 
     ### ovmf
     cp "$bkdir/ovmf/ovmf-code.fd" "$outdir/ovmf-code.fd"
-    /stacker/bkcust virtfw secure-boot \
+    bkcust virtfw secure-boot \
         --output=$outdir/ovmf-vars.fd \
         "--platform=$keydir/uefi-pk" \
         "--kek=$keydir/uefi-kek" \
@@ -78,13 +80,13 @@ customized:
     #  "--no-microsoft"
 
     ### shim
-    /stacker/bkcust shim set-db \
+    bkcust shim set-db \
         --output="$outdir/shim.efi" \
         "$bkdir/shim/shim.efi" \
         "$keydir/uki-limited" \
         "$keydir/uki-production" \
         "$keydir/uki-tpm"
-    /stacker/bkcust sign-efi "$outdir/shim.efi" \
+    bkcust sign-efi "$outdir/shim.efi" \
         "$keydir/uefi-db/cert.pem" "$keydir/uefi-db/privkey.pem"
 
     ## shim custbk (shell) commands.
@@ -114,11 +116,11 @@ customized:
     rm -Rf "$ixdir"
 
     ### uki / smoosh
-    /stacker/bkcust stubby smoosh --cmdline="" \
+    bkcust stubby smoosh --cmdline="" \
         "$outdir/kernel.efi" "$bkdir/stubby/stubby.efi" \
         "$bkdir/kernel/boot/vmlinuz" \
         "$workdir/initrd.img"
-    /stacker/bkcust sign-efi "$outdir/kernel.efi" \
+    bkcust sign-efi "$outdir/kernel.efi" \
         "$keydir/uki-production/cert.pem" "$keydir/uki-production/privkey.pem"
 
     ## uki custbk (shell) commands

@@ -22,7 +22,7 @@ mos-build:
     mkdir "$workd"
 
     mkdir -p "$workd/etc/"
-    cp /stacker/zot-config.json "$workd/etc/"
+    cp /stacker/imports/zot-config.json "$workd/etc/"
 
     mkdir -p "$workd/usr/bin"
 

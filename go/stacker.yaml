@@ -16,7 +16,7 @@ buildenv-pkg:
 
     target="/usr/lib"
     fail() { echo "$@" 1>&2; exit 1; }
-    tarball=$(echo /stacker/go*.tar.gz)
+    tarball=$(echo /stacker/imports/go*.tar.gz)
     [ -f "$tarball" ] || fail "$tarball: not a file"
     bn=${tarball##*/}
     version=$(echo "$bn" | sed 's,go\([0-9.]*\)[.].*,\1,')
