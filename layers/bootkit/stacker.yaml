@@ -24,7 +24,7 @@ bootkit-assemble:
     trap "rm -Rf $d" EXIT
 
     mkdir "$d/bootkit"
-    for f in /stacker/*.tar; do
+    for f in /stacker/imports/*.tar; do
         tar -C "$d/bootkit" -xf "$f"
     done
 

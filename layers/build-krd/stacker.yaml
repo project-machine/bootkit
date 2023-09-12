@@ -65,16 +65,17 @@ build-krd:
     - dracut/
   run: |
 
+    importd=/stacker/imports
     for bin in build-initrd create-cpio; do
       t=$workd/usr/bin/$bin
-      cp -v /stacker/$bin "$t"
+      cp -v $importd/$bin "$t"
       chmod 755 "$t"
     done
 
-    ( cd /stacker && cp -v build-initrd create-cpio /usr/local/bin  )
+    ( cd $importd && cp -v build-initrd create-cpio /usr/local/bin  )
 
-    cp /stacker/dracut/bootkit.conf /etc/dracut.conf.d/dracut-atom.conf
-    for d in /stacker/dracut/*; do
+    cp $importd/dracut/bootkit.conf /etc/dracut.conf.d/dracut-atom.conf
+    for d in $importd/dracut/*; do
         [ -d "$d" -a -e "$d/module-setup.sh" ] || continue
         base=${d##*/}
         tdir="/usr/lib/dracut/modules.d/91${base}"

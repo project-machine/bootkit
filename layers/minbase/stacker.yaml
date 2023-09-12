@@ -18,7 +18,8 @@ minbase:
     deb [by-hash=force] $mirror ${rel}-security main universe
     EOF
 
-    cp /stacker/pkgtool /usr/local/bin
+    cp /stacker/imports/pkgtool /usr/local/bin
+    chmod 755 /usr/local/bin/pkgtool
 
     pkgtool upgrade
     pkgtool install ca-certificates

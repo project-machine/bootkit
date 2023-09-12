@@ -14,7 +14,7 @@ shim-build-env:
         wget gcc make bzip2 efitools
 
     mkdir /build
-    tar -C /build -xf /stacker/shim-*.tar*
+    tar -C /build -xf /stacker/imports/shim-*.tar*
 
 shim-build:
   build_only: true
