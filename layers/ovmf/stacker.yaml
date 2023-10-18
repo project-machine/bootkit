@@ -21,8 +21,8 @@ ovmf-build:
 
     mkdir "$d/ovmf"
 
-    codef=/usr/share/OVMF/OVMF_CODE.secboot.fd
-    varsf=/usr/share/OVMF/OVMF_VARS.fd
+    codef=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd
+    varsf=/usr/share/OVMF/OVMF_VARS_4M.fd
     cp "$codef" "$d/ovmf/ovmf-code.fd"
     cp "$varsf" "$d/ovmf/ovmf-vars.fd"
 
