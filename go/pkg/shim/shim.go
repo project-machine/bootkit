@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"unsafe"
 
 	efi "github.com/canonical/go-efilib"
@@ -73,8 +74,10 @@ func SetVendorDB(shim string, db, dbx efi.SignatureDatabase) error {
 	if err != nil {
 		return err
 	}
+	defer os.Remove(fp.Name())
 
 	if err := VendorDBSectionWrite(fp, db, dbx); err != nil {
+		fp.Close()
 		return err
 	}
 
