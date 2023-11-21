@@ -20,8 +20,12 @@ jobs:
       - name: Prepare environment
         run: |
           sudo add-apt-repository -y ppa:project-machine/squashfuse
-          sudo apt-get install ovmf pip squashfuse
+          sudo apt-get install mtools ovmf pip squashfuse
           sudo pip install virt-firmware
+          sudo wget --progress=dot:mega -O /usr/bin/zot \
+              https://github.com/project-zot/zot/releases/download/v2.0.0-rc5/zot-linux-amd64-minimal
+          sudo chmod 755 /usr/bin/zot
+          which zot
           sudo wget --progress=dot:mega -O /usr/bin/stacker \
               https://github.com/project-stacker/stacker/releases/download/v1.0.0-rc5/stacker
           sudo chmod 755 /usr/bin/stacker
@@ -29,7 +33,7 @@ jobs:
           stacker --version
 
           sudo wget --progress=dot:mega -O /usr/bin/trust \
-              https://github.com/project-machine/trust/releases/download/v0.0.9/trust-linux-amd64
+              https://github.com/project-machine/mos/releases/download/v0.0.26/trust-linux-amd64
           sudo chmod 755 /usr/bin/trust
           trust keyset add snakeoil
       - name: build golang
