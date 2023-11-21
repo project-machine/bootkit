@@ -9,7 +9,7 @@ mos-build:
     tag: build-krd
   import:
     - path: ${{MOSCTL_BINARY}}
-      dest: /imports/mosctl/
+      dest: /imports/mosctl/mosctl
     - path: ${{ZOT_BINARY}}
       dest: /imports/zot/
     - zot-config.json
