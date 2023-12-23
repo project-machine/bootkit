@@ -33,7 +33,7 @@ jobs:
           stacker --version
 
           sudo wget --progress=dot:mega -O /usr/bin/trust \
-              https://github.com/project-machine/mos/releases/download/v0.0.26/trust-linux-amd64
+              https://github.com/project-machine/mos/releases/download/v0.0.28/trust-linux-amd64
           sudo chmod 755 /usr/bin/trust
           trust keyset add snakeoil
       - name: build golang
