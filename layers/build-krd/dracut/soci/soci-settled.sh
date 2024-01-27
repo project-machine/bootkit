@@ -247,6 +247,10 @@ soci_udev_settled() {
                if [ "$name" = "mosboot" ]; then
                    mkdir -p /sysroot/factory
                    soci_log_run mount --move /priv/factory /sysroot/factory
+                   soci_log_run mkdir /bootkit
+                   soci_log_run mosctl --debug mount --target bootkit /bootkit
+                   soci_log_run mkdir -p /sysroot/lib/modules
+                   soci_log_run mount /bootkit/bootkit/modules.squashfs /sysroot/lib/modules
                 fi
                soci_info "TPM is ready for general boot"
                ;;
