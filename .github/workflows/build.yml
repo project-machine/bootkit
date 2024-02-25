@@ -42,14 +42,6 @@ jobs:
       - name: build layers
         run: |
           make STACKER_COMMON_OPTS=--debug
-      - name: Publish zot
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          PUBLISH_USER: ${{ secrets.ZOTHUB_USERNAME }}
-          PUBLISH_PASSWORD: ${{ secrets.ZOTHUB_PASSWORD }}
-          PUBLISH_URL: "docker://zothub.io/machine/bootkit"
-        run: |
-          make publish
       - name: Release bin
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
