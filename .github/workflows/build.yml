@@ -31,19 +31,9 @@ jobs:
           sudo chmod 755 /usr/bin/stacker
           which stacker
           stacker --version
-
-          sudo wget --progress=dot:mega -O /usr/bin/trust \
-              https://github.com/project-machine/mos/releases/download/v0.0.28/trust-linux-amd64
-          sudo chmod 755 /usr/bin/trust
-          trust keyset add snakeoil
       - name: build golang
         run: |
           make go-stacker-build
       - name: build layers
         run: |
           make STACKER_COMMON_OPTS=--debug
-      - name: Release bin
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: pkg/bkcust
