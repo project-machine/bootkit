@@ -3,7 +3,7 @@ minbase:
   from:
     type: docker
     url: ${{DOCKER_BASE}}ubuntu:jammy
-  import:
+  imports:
     - pkgtool
   run: |
     mirror=${{UBUNTU_MIRROR}}

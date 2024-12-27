@@ -7,7 +7,7 @@ shim-build-env:
   from:
     type: built
     tag: minbase
-  import:
+  imports:
     - https://github.com/rhboot/shim/releases/download/15.6/shim-15.6.tar.bz2
   run: |
     pkgtool install libc6-dev openssl \

@@ -30,7 +30,7 @@ customized:
   from:
     type: built
     tag: build-customize
-  import:
+  imports:
     - path: ../../tools/custbk
     - path: ../../pkg/bkcust
     - path: ${{KEYSET_D}}/

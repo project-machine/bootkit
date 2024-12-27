@@ -11,7 +11,7 @@ bootkit-assemble:
   from:
     type: built
     tag: build-krd
-  import:
+  imports:
     - stacker://kernel-build/export/initrd.tar
     - stacker://kernel-build/export/kernel.tar
     - stacker://mos-build/export/mos.tar
