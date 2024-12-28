@@ -7,7 +7,7 @@ buildenv-pkg:
   from:
     type: built
     tag: minbase
-  import:
+  imports:
     - https://go.dev/dl/go1.20.8.linux-amd64.tar.gz
   run: |
     pkgtool install gcc git libc6-dev make pkg-config \

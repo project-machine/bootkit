@@ -15,7 +15,7 @@ stubby-build:
   from:
     type: built
     tag: stubby-build-env
-  import:
+  imports:
     - "https://github.com/puzzleos/stubby/archive/refs/tags/v1.0.1.tar.gz"
   run: |
     #!/bin/bash -ex

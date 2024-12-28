@@ -59,10 +59,10 @@ build-krd:
   from:
     type: built
     tag: build-krd-pkg
-  import:
+  imports:
     - ../../tools/build-initrd
     - ../../tools/create-cpio
-    - dracut/
+    - dracut
   run: |
 
     importd=/stacker/imports
